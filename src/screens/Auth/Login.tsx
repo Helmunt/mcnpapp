@@ -1,3 +1,7 @@
+import { Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
+import { authService } from '../../services/auth';
 import React, { useState } from 'react';
 import {
   View,
@@ -6,12 +10,15 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
+  ScrollView,
+  Image,
+  KeyboardAvoidingView,
+  Platform
 } from 'react-native';
 import { Formik, FormikProps } from 'formik';
 import * as Yup from 'yup';
-import { Image } from 'react-native';
 import { COLORS, FONTS, FONT_SIZES } from '../../constants/theme';
-import { Eye, EyeOff } from 'lucide-react-native'; // Para los iconos de mostrar/ocultar contraseña
+import { Eye, EyeOff } from 'lucide-react-native';
 
 interface LoginFormValues {
   email: string;
@@ -29,147 +36,172 @@ const LoginSchema = Yup.object().shape({
 });
 
 export const LoginScreen = () => {
+  const navigation = useNavigation();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   
   const handleSubmit = async (values: LoginFormValues) => {
     setIsLoading(true);
     try {
-      // Aquí irá la lógica de autenticación
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulación de llamada API
-      console.log('Login success:', values);
+      const response = await authService.login(values.email, values.password);
+      // Guardar el token
+      await AsyncStorage.setItem('userToken', response.token);
+      // Navegar a la pantalla principal
+      navigation.navigate('Home' as never);  // Tipo 'never' para evitar problemas de tipado
     } catch (error) {
-      console.error('Login error:', error);
+      // Mostrar error al usuario
+      Alert.alert('Error', 'Credenciales inválidas');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <Formik<LoginFormValues>
-      initialValues={{ email: '', password: '', rememberMe: false }}
-      validationSchema={LoginSchema}
-      onSubmit={handleSubmit}
-    >
-      {({ 
-        handleChange, 
-        handleBlur, 
-        handleSubmit, 
-        setFieldValue,
-        values, 
-        errors, 
-        touched 
-      }: FormikProps<LoginFormValues>) => (
-        <View style={styles.formContainer}>
-           
-          {/* Logo al inicio del formulario */}
-          <Image source={require('../../assets/images/Logo.png')} style={styles.logo} />      
+    <KeyboardAvoidingView 
+    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    style={styles.container}
+  >
+    <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
+        <Formik<LoginFormValues>
+          initialValues={{ email: '', password: '', rememberMe: false }}
+          validationSchema={LoginSchema}
+          onSubmit={handleSubmit}
+        >
+        {({ 
+          handleChange, 
+          handleBlur, 
+          handleSubmit, 
+          setFieldValue,
+          values, 
+          errors, 
+          touched 
+        }: FormikProps<LoginFormValues>) => (
+          <View style={styles.formContainer}>
+            {/* Logo al inicio del formulario */}
+            <Image source={require('../../assets/images/Logo.png')} style={styles.logo} />      
 
-          {/* Campo Email */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={[
-                styles.input,
-                touched.email && errors.email ? styles.inputError : undefined
-              ]}
-              value={values.email}
-              onChangeText={handleChange('email')}
-              onBlur={handleBlur('email')}
-              placeholder="Ingresa tu email"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              editable={!isLoading}
-            />
-            {touched.email && errors.email && (
-              <Text style={styles.errorText}>{errors.email}</Text>
-            )}
-          </View>
-
-          {/* Campo Contraseña */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Contraseña</Text>
-            <View style={styles.passwordContainer}>
+            {/* Campo Email */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Email</Text>
               <TextInput
                 style={[
                   styles.input,
-                  styles.passwordInput,
-                  touched.password && errors.password ? styles.inputError : undefined
+                  touched.email && errors.email ? styles.inputError : undefined
                 ]}
-                value={values.password}
-                onChangeText={handleChange('password')}
-                onBlur={handleBlur('password')}
-                placeholder="Ingresa tu contraseña"
-                secureTextEntry={!showPassword}
+                value={values.email}
+                onChangeText={handleChange('email')}
+                onBlur={handleBlur('email')}
+                placeholder="Ingresa tu email"
+                keyboardType="email-address"
+                autoCapitalize="none"
                 editable={!isLoading}
               />
+              {touched.email && errors.email && (
+                <Text style={styles.errorText}>{errors.email}</Text>
+              )}
+            </View>
+
+            {/* Campo Contraseña */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Contraseña</Text>
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    styles.passwordInput,
+                    touched.password && errors.password ? styles.inputError : undefined
+                  ]}
+                  value={values.password}
+                  onChangeText={handleChange('password')}
+                  onBlur={handleBlur('password')}
+                  placeholder="Ingresa tu contraseña"
+                  secureTextEntry={!showPassword}
+                  editable={!isLoading}
+                />
+                <TouchableOpacity 
+                  style={styles.eyeIcon}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <EyeOff size={24} color={COLORS.gray} />
+                  ) : (
+                    <Eye size={24} color={COLORS.gray} />
+                  )}
+                </TouchableOpacity>
+              </View>
+              {touched.password && errors.password && (
+                <Text style={styles.errorText}>{errors.password}</Text>
+              )}
+            </View>
+
+            {/* Remember Me y Forgot Password */}
+            <View style={styles.optionsContainer}>
               <TouchableOpacity 
-                style={styles.eyeIcon}
-                onPress={() => setShowPassword(!showPassword)}
+                style={styles.checkboxContainer}
+                onPress={() => setFieldValue('rememberMe', !values.rememberMe)}
               >
-                {showPassword ? (
-                  <EyeOff size={24} color={COLORS.gray} />
-                ) : (
-                  <Eye size={24} color={COLORS.gray} />
-                )}
+                <View style={[
+                  styles.checkbox,
+                  values.rememberMe && styles.checkboxChecked
+                ]} />
+                <Text style={styles.checkboxLabel}>Recuérdame</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => console.log('Forgot password')}>
+                <Text style={styles.forgotPassword}>¿Olvidaste tu contraseña?</Text>
               </TouchableOpacity>
             </View>
-            {touched.password && errors.password && (
-              <Text style={styles.errorText}>{errors.password}</Text>
-            )}
-          </View>
 
-          {/* Remember Me y Forgot Password */}
-          <View style={styles.optionsContainer}>
-            <TouchableOpacity 
-              style={styles.checkboxContainer}
-              onPress={() => setFieldValue('rememberMe', !values.rememberMe)}
+            {/* Botón de Login */}
+            <TouchableOpacity
+              style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
+              onPress={() => handleSubmit()}
+              disabled={isLoading}
             >
-              <View style={[
-                styles.checkbox,
-                values.rememberMe && styles.checkboxChecked
-              ]} />
-              <Text style={styles.checkboxLabel}>Recuérdame</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => console.log('Forgot password')}>
-              <Text style={styles.forgotPassword}>¿Olvidaste tu contraseña?</Text>
+              {isLoading ? (
+                <ActivityIndicator color={COLORS.white} />
+              ) : (
+                <Text style={styles.loginButtonText}>Iniciar Sesión</Text>
+              )}
             </TouchableOpacity>
           </View>
-
-          {/* Botón de Login */}
-          <TouchableOpacity
-            style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
-            onPress={() => handleSubmit()}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color={COLORS.white} />
-            ) : (
-              <Text style={styles.loginButtonText}>Iniciar Sesión</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      )}
-    </Formik>
+        )}
+        </Formik>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: Platform.OS === 'ios' ? 40 : 20,
+  },
     // Contenedores principales
     formContainer: {
-      padding: 20,
+      padding: 24,
+      paddingTop: Platform.OS === 'ios' ? 40 : 20,
     },
     logo: {
-      width: 280, // Ajusta el tamaño a 180 para hacerlo más grande
-      height: 280,
+      width: 350,
+      height: 180,
       resizeMode: 'contain',
-      marginBottom: 20,
-      marginTop: 30, // Espacio entre el logo y el formulario
-      alignSelf: 'center', // Asegura que el logo esté centrado
+      marginBottom: 40,
+      marginTop: Platform.OS === 'ios' ? 60 : 40,
+      alignSelf: 'center',
     },
     inputContainer: {
-      marginBottom: 16,
+      marginBottom: 24,
     },
     passwordContainer: {
       position: 'relative',
@@ -180,19 +212,21 @@ const styles = StyleSheet.create({
     // Estilos de inputs
     input: {
       backgroundColor: COLORS.lightGray,
-      borderRadius: 8,
-      padding: 12,
+      borderRadius: 25,
+      padding: 20, // Más padding interno
+      paddingHorizontal: 24, // Más espacio horizontal
       fontFamily: FONTS.body,
       fontSize: FONT_SIZES.md,
       color: COLORS.text,
-      borderWidth: 1,
-      borderColor: COLORS.lightGray,
+      borderWidth: 0,
+      //borderColor: COLORS.lightGray,
     },
     passwordInput: {
       flex: 1,
       paddingRight: 50,
     },
     inputError: {
+      borderWidth: 1,
       borderColor: COLORS.error,
     },
   
@@ -213,8 +247,10 @@ const styles = StyleSheet.create({
     // Iconos y elementos interactivos
     eyeIcon: {
       position: 'absolute',
-      right: 12,
-      padding: 4,
+      right: 16,
+      padding: 8,
+      backgroundColor: 'transparent', // Fondo transparente
+      borderRadius: 20, // Forma circular
     },
   
     // Opciones (Remember me y Forgot password)
@@ -229,42 +265,50 @@ const styles = StyleSheet.create({
       alignItems: 'center',
     },
     checkbox: {
-      width: 20,
-      height: 20,
+      width: 24,
+      height: 24,
       borderRadius: 4,
       borderWidth: 2,
       borderColor: COLORS.primary,
-      marginRight: 8,
+      marginRight: 12,
     },
     checkboxChecked: {
       backgroundColor: COLORS.primary,
     },
     checkboxLabel: {
       fontFamily: FONTS.body,
-      fontSize: FONT_SIZES.sm,
+      fontSize: FONT_SIZES.md,
       color: COLORS.text,
     },
     forgotPassword: {
       fontFamily: FONTS.body,
-      fontSize: FONT_SIZES.sm,
+      fontSize: FONT_SIZES.md,
       color: COLORS.primary,
     },
   
     // Botón de login
     loginButton: {
       backgroundColor: COLORS.primary,
-      borderRadius: 8,
-      padding: 16,
+      borderRadius: 12,
+      padding: 18,
       alignItems: 'center',
-      marginTop: 24,
+      marginTop: 32,
+      shadowColor: COLORS.primary,
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.3,
+      shadowRadius: 4,
+      elevation: 4,
     },
     loginButtonDisabled: {
       opacity: 0.7,
     },
     loginButtonText: {
       color: COLORS.white,
-      fontSize: FONT_SIZES.md,
+      fontSize: FONT_SIZES.lg,
       fontFamily: FONTS.heading,
       fontWeight: '600',
     },
-  });
+});
