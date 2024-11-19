@@ -1,9 +1,8 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ActivityIndicator, View } from 'react-native';
-import { HomeScreen } from './src/screens/Home';
-import { DetailsScreen } from './src/screens/Details';
 import { LoginScreen } from './src/screens/Auth/Login';
+import { MainNavigator } from './src/navigation/MainNavigator';
 import { useFonts } from './src/hooks/useFonts';
 import { COLORS } from './src/constants/theme';
 import { RootStackParamList } from './src/types/navigation';
@@ -37,8 +36,7 @@ export default function App() {
         }}
       >
         <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="Home" component={HomeScreen} />
-        <Stack.Screen name="Details" component={DetailsScreen} />
+        <Stack.Screen name="Main" component={MainNavigator} />
       </Stack.Navigator>
     </NavigationContainer>
   );

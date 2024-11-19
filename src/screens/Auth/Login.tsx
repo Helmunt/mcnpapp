@@ -47,7 +47,7 @@ export const LoginScreen = () => {
       // Guardar el token
       await AsyncStorage.setItem('userToken', response.token);
       // Navegar a la pantalla principal
-      navigation.navigate('Home' as never);  // Tipo 'never' para evitar problemas de tipado
+      navigation.navigate('Main' as never);  // Tipo 'never' para evitar problemas de tipado
     } catch (error) {
       // Mostrar error al usuario
       Alert.alert('Error', 'Credenciales inválidas');
