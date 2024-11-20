@@ -6,6 +6,7 @@ import { MainNavigator } from './src/navigation/MainNavigator';
 import { useFonts } from './src/hooks/useFonts';
 import { COLORS } from './src/constants/theme';
 import { RootStackParamList } from './src/types/navigation';
+import { UserProvider } from './src/context/UserContext';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -21,23 +22,25 @@ export default function App() {
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator
-        initialRouteName="Login"
-        screenOptions={{
-          headerShown: false,
-          headerStyle: {
-            backgroundColor: COLORS.primary,
-          },
-          headerTintColor: COLORS.white,
-          headerTitleStyle: {
-            fontFamily: 'Questrial',
-          },
-        }}
-      >
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="Main" component={MainNavigator} />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <UserProvider>
+      <NavigationContainer>
+        <Stack.Navigator
+          initialRouteName="Login"
+          screenOptions={{
+            headerShown: false,
+            headerStyle: {
+              backgroundColor: COLORS.primary,
+            },
+            headerTintColor: COLORS.white,
+            headerTitleStyle: {
+              fontFamily: 'Questrial',
+            },
+          }}
+        >
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Main" component={MainNavigator} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </UserProvider>
   );
 }

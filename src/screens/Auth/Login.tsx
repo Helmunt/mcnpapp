@@ -1,6 +1,7 @@
 import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import { useUser } from '../../context/UserContext';
 import { authService } from '../../services/auth';
 import React, { useState } from 'react';
 import {
@@ -36,6 +37,7 @@ const LoginSchema = Yup.object().shape({
 });
 
 export const LoginScreen = () => {
+  const { setUserName } = useUser();
   const navigation = useNavigation();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -44,12 +46,11 @@ export const LoginScreen = () => {
     setIsLoading(true);
     try {
       const response = await authService.login(values.email, values.password);
-      // Guardar el token
       await AsyncStorage.setItem('userToken', response.token);
-      // Navegar a la pantalla principal
-      navigation.navigate('Main' as never);  // Tipo 'never' para evitar problemas de tipado
+      await AsyncStorage.setItem('userName', response.user_display_name);
+      setUserName(response.user_display_name);
+      navigation.navigate('Main' as never);
     } catch (error) {
-      // Mostrar error al usuario
       Alert.alert('Error', 'Credenciales inválidas');
     } finally {
       setIsLoading(false);
