@@ -4,6 +4,7 @@ import { ActivityIndicator, View, BackHandler } from 'react-native';
 import { useEffect } from 'react';
 import { LoginScreen } from './src/screens/Auth/Login';
 import { MainNavigator } from './src/navigation/MainNavigator';
+import { ProfileScreen } from './src/screens/Profile/ProfileScreen';
 import { useFonts } from './src/hooks/useFonts';
 import { COLORS } from './src/constants/theme';
 import { RootStackParamList } from './src/types/navigation';
@@ -18,7 +19,7 @@ function NavigationStack() {
   useEffect(() => {
     const backAction = () => {
       if (state.isAuthenticated) {
-        return true; // Previene la navegación hacia atrás
+        return true;
       }
       return false;
     };
@@ -31,7 +32,6 @@ function NavigationStack() {
     return () => backHandler.remove();
   }, [state.isAuthenticated]);
 
-  // Asegurarnos de que el estado de autenticación es consistente
   const initialRoute = state.isAuthenticated && state.user ? 'Main' : 'Login';
 
   return (
@@ -39,14 +39,6 @@ function NavigationStack() {
       initialRouteName={initialRoute}
       screenOptions={{
         headerShown: false,
-        headerStyle: {
-          backgroundColor: COLORS.primary,
-        },
-        headerTintColor: COLORS.white,
-        headerTitleStyle: {
-          fontFamily: 'Questrial',
-        },
-        gestureEnabled: false, // Deshabilitar gestos de navegación
       }}
     >
       {!state.isAuthenticated ? (
@@ -55,20 +47,23 @@ function NavigationStack() {
           component={LoginScreen} 
           options={{
             gestureEnabled: false,
-            headerShown: false,
             animation: 'fade'
           }}
         />
       ) : (
-        <Stack.Screen 
-          name="Main" 
-          component={MainNavigator} 
-          options={{
-            gestureEnabled: false,
-            headerShown: false,
-            animation: 'fade'
-          }}
-        />
+        <>
+          <Stack.Screen 
+            name="Main" 
+            component={MainNavigator}
+          />
+          <Stack.Screen 
+            name="Profile" 
+            component={ProfileScreen}
+            options={{
+              presentation: 'containedModal'
+            }}
+          />
+        </>
       )}
     </Stack.Navigator>
   );

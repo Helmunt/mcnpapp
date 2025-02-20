@@ -1,0 +1,76 @@
+Listado de rutas de carpetas para el volumen OS
+El número de serie del volumen es B4AA-B6B9
+C:\APP-MCNP\MCNPAPP\SRC
++---assets
+|   +---fonts
+|   |       Questrial-Regular.ttf
+|   |       Roboto-Bold.ttf
+|   |       Roboto-Medium.ttf
+|   |       Roboto-Regular.ttf
+|   |       
+|   \---images
+|           Logo.png
+|           LogoSimplificado.png
+|           
++---components
+|   \---shared
+|           Header.tsx
+|           
++---constants
+|       routes.ts
+|       theme.ts
+|       
++---context
+|       AuthContext.tsx
+|       UserContext.tsx
+|       
++---hooks
+|       useFonts.ts
+|       
++---navigation
+|   |   MainNavigator.tsx
+|   |   
+|   \---congress
+|           CongressNavigator.tsx
+|           
++---screens
+|   +---Auth
+|   |       Login.tsx
+|   |       
+|   +---Congress
+|   |   |   CongressScreen.tsx
+|   |   |   
+|   |   +---components
+|   |   |       MenuItem.tsx
+|   |   |       
+|   |   \---screens
+|   |           AgendaScreen.tsx
+|   |           CertificatesScreen.tsx
+|   |           MapScreen.tsx
+|   |           QRScreen.tsx
+|   |           QuizScreen.tsx
+|   |           SpeakersScreen.tsx
+|   |           
+|   +---Details
+|   |       index.tsx
+|   |       
+|   +---Home
+|   |       HomeScreen.tsx
+|   |       
+|   +---Profile
+|   |       ProfileScreen.tsx
+|   |       
+|   \---Social
+|           SocialScreen.tsx
+|           
++---services
+|       auth.ts
+|       
++---styles
+|       global.ts
+|       
+\---types
+        congress.ts
+        navigation.ts
+        user.ts
+        

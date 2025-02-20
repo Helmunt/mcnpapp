@@ -15,19 +15,20 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "newArchEnabled": true,
+      "bundleIdentifier": "com.mcnp.mcnpapp"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "newArchEnabled": true,
+      "package": "com.mcnp.mcnpapp"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    },
-    "experiments": {
-      "newArchEnabled": true
     },
     "plugins": [
       "expo-font"

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { COLORS, FONTS, FONT_SIZES } from '../../constants/theme';
+import { COLORS, FONTS, FONT_SIZES } from '../../../constants/theme';
 
 export const CertificatesScreen = () => {
   return (
