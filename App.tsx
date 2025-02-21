@@ -4,7 +4,6 @@ import { ActivityIndicator, View, BackHandler } from 'react-native';
 import { useEffect } from 'react';
 import { LoginScreen } from './src/screens/Auth/Login';
 import { MainNavigator } from './src/navigation/MainNavigator';
-import { ProfileScreen } from './src/screens/Profile/ProfileScreen';
 import { useFonts } from './src/hooks/useFonts';
 import { COLORS } from './src/constants/theme';
 import { RootStackParamList } from './src/types/navigation';
@@ -38,7 +37,7 @@ function NavigationStack() {
     <Stack.Navigator
       initialRouteName={initialRoute}
       screenOptions={{
-        headerShown: false,
+        headerShown: false, // ✅ Ocultamos el header en la navegación principal
       }}
     >
       {!state.isAuthenticated ? (
@@ -51,19 +50,10 @@ function NavigationStack() {
           }}
         />
       ) : (
-        <>
-          <Stack.Screen 
-            name="Main" 
-            component={MainNavigator}
-          />
-          <Stack.Screen 
-            name="Profile" 
-            component={ProfileScreen}
-            options={{
-              presentation: 'containedModal'
-            }}
-          />
-        </>
+        <Stack.Screen 
+          name="Main" 
+          component={MainNavigator} 
+        />
       )}
     </Stack.Navigator>
   );

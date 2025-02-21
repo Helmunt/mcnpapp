@@ -71,4 +71,57 @@ export const globalStyles = StyleSheet.create({
   infoItem: {
     marginBottom: 16,
   },
+    // Header y navegación 
+    headerContainer: {
+      backgroundColor: COLORS.primary,
+      paddingTop: Platform.OS === 'ios' ? 48 : 16,
+      paddingBottom: 16,
+      paddingHorizontal: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      shadowColor: COLORS.black,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 4,
+    },
+    headerTitle: {
+      color: COLORS.white,
+      fontFamily: FONTS.heading,
+      fontSize: FONT_SIZES.lg,
+      fontWeight: '600',
+    },
+    backButton: {
+      padding: 8,
+      marginRight: 16,
+    },
+    // Titulos del cada una de las páginas y botón flotante
+    titleContainer: {
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      backgroundColor: COLORS.white,
+    },
+    pageTitle: {
+      fontSize: FONT_SIZES.xl,
+      fontFamily: FONTS.heading,
+      color: COLORS.primary,
+      textAlign: 'center',
+    },
+    floatingBackButton: {
+      position: 'absolute',
+      bottom: 24,
+      left: 24,
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: COLORS.primary,
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: COLORS.black,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.2,
+      shadowRadius: 5,
+      elevation: 6,
+      zIndex: 999,
+    }
 });

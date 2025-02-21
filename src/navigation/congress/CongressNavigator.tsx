@@ -16,7 +16,7 @@ export const CongressNavigator = () => {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerShown: true,
+        headerShown: true, // Se asegura que sea booleano explícito
         headerStyle: {
           backgroundColor: COLORS.white,
         },
