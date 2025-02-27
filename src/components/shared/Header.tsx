@@ -2,9 +2,14 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform, Image } from 'react-native';
 import { Bell, User, LogOut } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { COLORS, FONTS, FONT_SIZES } from '../../constants/theme';
 import { useUser } from '../../context/UserContext';
 import { useAuth } from '../../context/AuthContext';
+import { RootStackParamList } from '../../types/navigation';  // <-- Importamos el RootStackParamList
+
+// Definimos el tipo de navegación, para que TypeScript sepa las rutas
+type RootStackNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const NotificationBadge = ({ count }: { count: number }) => (
   <View style={styles.badgeContainer}>
@@ -16,7 +21,9 @@ const NotificationBadge = ({ count }: { count: number }) => (
 );
 
 export const Header = () => {
-  const navigation = useNavigation();
+  // Usamos useNavigation con el tipo correcto
+  const navigation = useNavigation<RootStackNavigationProp>();
+
   const { userName } = useUser();
   const { state, logout } = useAuth();
   const notificationCount = 5;
@@ -36,6 +43,7 @@ export const Header = () => {
   // Verificamos el rol usando las constantes correctas
   const isAdmin = state.user?.role === 'Administrador';
   const isCongreso = state.user?.role === 'Congreso';
+  const isSuscriptor = state.user?.role === 'Suscriptor';
 
   return (
     <View style={styles.headerContainer}>
@@ -55,6 +63,9 @@ export const Header = () => {
           {isCongreso && (
             <Text style={styles.roleText}>(Congreso)</Text>
           )}
+          {isSuscriptor && (
+           <Text style={styles.roleText}>(Suscriptor)</Text>
+         )}
         </View>
         <View style={styles.headerRight}>
           <TouchableOpacity 
@@ -64,12 +75,18 @@ export const Header = () => {
             <Bell size={24} color={COLORS.primary} strokeWidth={1.5} />
             <NotificationBadge count={notificationCount} />
           </TouchableOpacity>
+
+          {/* Botón que navega a la pestaña "Profile" */}
           <TouchableOpacity 
             style={styles.userInfo}
-            onPress={() => navigation.navigate('Profile' as never)}
+            onPress={() => {
+              // Actualiza para navegar directamente a la ruta Profile
+              navigation.navigate('Profile');
+            }}
           >
             <User size={24} color={COLORS.primary} strokeWidth={1.5} />
           </TouchableOpacity>
+
           <TouchableOpacity 
             style={styles.logoutButton}
             onPress={handleLogout}

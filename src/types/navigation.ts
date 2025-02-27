@@ -2,17 +2,21 @@ import { CompositeNavigationProp, NavigatorScreenParams } from '@react-navigatio
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 
+
 // Stack principal
 export type RootStackParamList = {
   Login: undefined;
-  Main: undefined;
-  Profile: undefined; 
+  // ✔ Cambiamos "Main" para que sea un NavigatorScreenParams<MainStackParamList>
+  Main: NavigatorScreenParams<MainStackParamList>;
+  // Si "Profile" no se utiliza en el RootStack, podemos removerlo.
+  // Si de verdad la usas directamente desde aquí, la dejamos:
+  Profile: undefined;
 };
 
 // Stack dentro de Main
 export type MainStackParamList = {
-  MainTabs: undefined;
-  Profile: undefined;
+  MainTabs: NavigatorScreenParams<MainTabParamList>;
+  Profile: NavigatorScreenParams<ProfileStackParamList>;
 };
 
 // Stack del Congreso
@@ -26,12 +30,28 @@ export type CongressStackParamList = {
   CongressCertificates: undefined;
 };
 
+// Stack para Social
+export type SocialStackParamList = {
+  SocialMain: undefined;
+};
+
+// Stack para Newsletter
+export type NewsletterStackParamList = {
+  NewsletterMain: undefined;
+};
+
+// Stack para Profile
+export type ProfileStackParamList = {
+  ProfileMain: undefined;
+};
+
 // Tabs principales
 export type MainTabParamList = {
   Home: undefined;
-  Social: undefined;
-  Certificates: undefined;
+  Social: NavigatorScreenParams<SocialStackParamList>;
+  Newsletter: NavigatorScreenParams<NewsletterStackParamList>;
   Congress: NavigatorScreenParams<CongressStackParamList>;
+  Profile: NavigatorScreenParams<ProfileStackParamList>;
 };
 
 // Tipos de navegación compuestos

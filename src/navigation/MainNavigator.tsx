@@ -1,21 +1,102 @@
-import React from 'react';
-import { Platform, View, TouchableOpacity, GestureResponderEvent } from 'react-native';
+import React, { useState } from 'react';
+import { Platform, View, TouchableOpacity, GestureResponderEvent, Text, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Home, Users, Award, Calendar } from 'lucide-react-native';
+import { Home, Users, Newspaper, Calendar, ArrowLeft, UserCircle } from 'lucide-react-native';
 import { COLORS, FONTS, FONT_SIZES } from '../constants/theme';
 import { Header } from '../components/shared/Header';
+import { useAuth } from '../context/AuthContext';
+import { AppSection, hasAccessToSection, getAccessDeniedMessage } from '../services/permissionService';
+import AccessRestrictedModal from '../components/shared/AccessRestrictedModal';
 
 import { HomeScreen } from '../screens/Home/HomeScreen';
 import { SocialScreen } from '../screens/Social/SocialScreen';
-import { CertificatesScreen } from '../screens/Congress/screens/CertificatesScreen';
+import { NewsletterScreen } from '../screens/Newsletter/NewsletterScreen';
 import { CongressNavigator } from './congress/CongressNavigator';
 import { ProfileScreen } from '../screens/Profile/ProfileScreen';
+import {
+  MainStackParamList,
+  MainTabParamList,
+  SocialStackParamList,
+  NewsletterStackParamList,
+  ProfileStackParamList
+} from '../types/navigation';
 
-const Tab = createBottomTabNavigator();
-const Stack = createNativeStackNavigator();
+const Tab = createBottomTabNavigator<MainTabParamList>();
+const Stack = createNativeStackNavigator<MainStackParamList>();
+const SocialStack = createNativeStackNavigator<SocialStackParamList>();
+const NewsletterStack = createNativeStackNavigator<NewsletterStackParamList>();
+const ProfileStack = createNativeStackNavigator<ProfileStackParamList>();
 
-const TabBarButton = ({ children, onPress }: { children: React.ReactNode; onPress?: (event: GestureResponderEvent) => void }) => (
+// Componente para proteger acceso a pestañas
+const ProtectedTabScreen = ({ children, section }: { children: React.ReactNode, section: AppSection }) => {
+  const { state } = useAuth();
+  const [showModal, setShowModal] = useState(!hasAccessToSection(state.user?.role, section));
+  
+  if (showModal) {
+    return (
+      <View style={{ flex: 1, backgroundColor: COLORS.white }}>
+        <AccessRestrictedModal
+          isVisible={showModal}
+          message={getAccessDeniedMessage(section)}
+          onClose={() => setShowModal(false)}
+        />
+      </View>
+    );
+  }
+  
+  return <>{children}</>;
+};
+
+// Componente para manejar la navegación a las pestañas protegidas
+const ProtectedTabButton = ({
+  children,
+  onPress,
+  section,
+}: {
+  children: React.ReactNode;
+  onPress?: (event: GestureResponderEvent) => void;
+  section?: AppSection;
+}) => {
+  const { state } = useAuth();
+  const [modalVisible, setModalVisible] = useState(false);
+
+  const handlePress = (event: GestureResponderEvent) => {
+    if (!section || hasAccessToSection(state.user?.role, section)) {
+      if (onPress) onPress(event);
+    } else {
+      setModalVisible(true);
+    }
+  };
+
+  return (
+    <>
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={handlePress}
+        style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+      >
+        {children}
+      </TouchableOpacity>
+      
+      {section && (
+        <AccessRestrictedModal 
+          isVisible={modalVisible} 
+          message={getAccessDeniedMessage(section)}
+          onClose={() => setModalVisible(false)} 
+        />
+      )}
+    </>
+  );
+};
+
+const TabBarButton = ({
+  children,
+  onPress,
+}: {
+  children: React.ReactNode;
+  onPress?: (event: GestureResponderEvent) => void;
+}) => (
   <TouchableOpacity
     activeOpacity={0.7}
     onPress={onPress}
@@ -25,11 +106,111 @@ const TabBarButton = ({ children, onPress }: { children: React.ReactNode; onPres
   </TouchableOpacity>
 );
 
-// ✅ Tab Navigator con Header en todas las pantallas
+// Componente CustomHeader para pantallas con flecha de retroceso
+const CustomHeader = ({
+  title,
+  navigation,
+}: {
+  title: string;
+  navigation: any;
+}) => {
+  return (
+    <View style={styles.headerContainer}>
+      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <ArrowLeft size={20} color={COLORS.primary} />
+      </TouchableOpacity>
+      <Text style={styles.headerTitle}>{title}</Text>
+    </View>
+  );
+};
+
+// Navegador para Social con su propio header
+const SocialNavigator = () => {
+  return (
+    <SocialStack.Navigator
+      screenOptions={{
+        headerShown: true,
+        headerStyle: {
+          backgroundColor: COLORS.white,
+        },
+        headerShadowVisible: false,
+        headerBackVisible: false,
+      }}
+    >
+      <SocialStack.Screen
+        name="SocialMain"
+        component={SocialScreen}
+        options={({ navigation }) => ({
+          header: () => <CustomHeader title="Social" navigation={navigation} />,
+        })}
+      />
+    </SocialStack.Navigator>
+  );
+};
+
+// Navegador para Newsletter con su propio header
+const NewsletterNavigator = () => {
+  return (
+    <NewsletterStack.Navigator
+      screenOptions={{
+        headerShown: true,
+        headerStyle: {
+          backgroundColor: COLORS.white,
+        },
+        headerShadowVisible: false,
+        headerBackVisible: false,
+      }}
+    >
+      <NewsletterStack.Screen
+        name="NewsletterMain"
+        component={NewsletterScreen}
+        options={({ navigation }) => ({
+          header: () => <CustomHeader title="Newsletter" navigation={navigation} />,
+        })}
+      />
+    </NewsletterStack.Navigator>
+  );
+};
+
+// Navegador para Profile con su propio header
+const ProfileNavigator = () => {
+  return (
+    <ProfileStack.Navigator
+      screenOptions={{
+        headerShown: true,
+        headerStyle: {
+          backgroundColor: COLORS.white,
+        },
+        headerShadowVisible: false,
+        headerBackVisible: false,
+      }}
+    >
+      <ProfileStack.Screen
+        name="ProfileMain"
+        component={ProfileScreen}
+        options={({ navigation }) => ({
+          header: () => <CustomHeader title="Mi Perfil" navigation={navigation} />,
+        })}
+      />
+    </ProfileStack.Navigator>
+  );
+};
+
+// Componente que envuelve el CongressNavigator con protección
+const ProtectedCongressNavigator = () => {
+  return (
+    <ProtectedTabScreen section={AppSection.CONGRESS}>
+      <CongressNavigator />
+    </ProtectedTabScreen>
+  );
+};
+
+// Tab Navigator sin la pestaña de Profile
 const TabsNavigator = () => {
   return (
     <View style={{ flex: 1 }}>
-      <Header /> 
+      {/* Cabecera personalizada en la parte superior */}
+      <Header />
       <Tab.Navigator
         screenOptions={{
           tabBarStyle: {
@@ -55,39 +236,60 @@ const TabsNavigator = () => {
             fontSize: FONT_SIZES.xs,
             marginTop: 5,
           },
-          headerShown: false, // ❌ Ocultamos el header del navegador para usar el personalizado
+          tabBarItemStyle: {
+            flex: 1,
+          },
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: COLORS.white,
+            shadowColor: 'transparent',
+            elevation: 0,
+          },
+          headerTitleStyle: {
+            fontSize: 18,
+            fontWeight: '600',
+            color: COLORS.primary,
+            fontFamily: FONTS.heading,
+          },
+          headerTitleAlign: 'center',
         }}
       >
         <Tab.Screen
           name="Home"
           component={HomeScreen}
           options={{
+            title: 'Inicio',
             tabBarIcon: ({ color }) => <Home size={24} color={color} strokeWidth={1.5} />,
             tabBarButton: (props) => <TabBarButton {...props} />,
           }}
         />
         <Tab.Screen
           name="Social"
-          component={SocialScreen}
+          component={SocialNavigator}
           options={{
+            headerShown: false,
             tabBarIcon: ({ color }) => <Users size={24} color={color} strokeWidth={1.5} />,
             tabBarButton: (props) => <TabBarButton {...props} />,
           }}
         />
         <Tab.Screen
-          name="Certificates"
-          component={CertificatesScreen}
+          name="Newsletter"
+          component={NewsletterNavigator}
           options={{
-            tabBarIcon: ({ color }) => <Award size={24} color={color} strokeWidth={1.5} />,
+            headerShown: false,
+            tabBarIcon: ({ color }) => <Newspaper size={24} color={color} strokeWidth={1.5} />,
             tabBarButton: (props) => <TabBarButton {...props} />,
           }}
         />
         <Tab.Screen
           name="Congress"
-          component={CongressNavigator}
+          component={ProtectedCongressNavigator}
           options={{
+            headerShown: false,
             tabBarIcon: ({ color }) => <Calendar size={24} color={color} strokeWidth={1.5} />,
-            tabBarButton: (props) => <TabBarButton {...props} />,
+            tabBarButton: (props) => (
+              <ProtectedTabButton {...props} section={AppSection.CONGRESS} />
+            ),
           }}
         />
       </Tab.Navigator>
@@ -95,22 +297,47 @@ const TabsNavigator = () => {
   );
 };
 
-// ✅ Main Navigator con Header y Profile dentro del mismo flujo
+// Main Navigator que incluye TabsNavigator y ProfileNavigator como rutas separadas
 const MainNavigator = () => {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator
+      initialRouteName="MainTabs"
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
       <Stack.Screen name="MainTabs" component={TabsNavigator} />
+      
       <Stack.Screen 
         name="Profile" 
         component={ProfileScreen} 
-        options={{ 
+        options={{
           headerShown: false,
-          animation: 'slide_from_right', 
-          presentation: 'card'
         }}
       />
     </Stack.Navigator>
   );
 };
+
+const styles = StyleSheet.create({
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    height: 60,
+    paddingHorizontal: 16,
+  },
+  backButton: {
+    padding: 8,
+  },
+  headerTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.primary,
+    marginRight: 28,
+  },
+});
 
 export { MainNavigator };

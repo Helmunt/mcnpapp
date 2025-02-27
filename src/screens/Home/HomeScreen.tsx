@@ -1,23 +1,52 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, Platform, Text } from 'react-native';
-import { Calendar, Users, BookOpen, Award } from 'lucide-react-native';
+import { Calendar, Users, BookOpen, Newspaper } from 'lucide-react-native';
 import { COLORS, FONTS, FONT_SIZES } from '../../constants/theme';
 import { MainNavigationProp } from '../../types/navigation';
+import { useAuth } from '../../context/AuthContext';
+import { AppSection, hasAccessToSection, getAccessDeniedMessage } from '../../services/permissionService';
+import AccessRestrictedModal from '../../components/shared/AccessRestrictedModal';
 
 interface MenuItemProps {
   icon: any;
   title: string;
   onPress: () => void;
+  section?: AppSection;
 }
 
-const MenuItem = ({ icon: Icon, title, onPress }: MenuItemProps) => (
-  <TouchableOpacity style={styles.menuItem} onPress={onPress}>
-    <View style={styles.iconContainer}>
-      <Icon size={32} color={COLORS.primary} strokeWidth={1.5} />
-    </View>
-    <Text style={styles.menuText}>{title}</Text>
-  </TouchableOpacity>
-);
+const MenuItem = ({ icon: Icon, title, onPress, section }: MenuItemProps) => {
+  const { state } = useAuth();
+  const [modalVisible, setModalVisible] = useState(false);
+
+  const handlePress = () => {
+    // Si no hay sección específica o el usuario tiene acceso, permitir la navegación
+    if (!section || hasAccessToSection(state.user?.role, section)) {
+      onPress();
+    } else {
+      // Mostrar modal si el usuario no tiene los permisos
+      setModalVisible(true);
+    }
+  };
+
+  return (
+    <>
+      <TouchableOpacity style={styles.menuItem} onPress={handlePress}>
+        <View style={styles.iconContainer}>
+          <Icon size={32} color={COLORS.primary} strokeWidth={1.5} />
+        </View>
+        <Text style={styles.menuText}>{title}</Text>
+      </TouchableOpacity>
+      
+      {section && (
+        <AccessRestrictedModal 
+          isVisible={modalVisible} 
+          message={getAccessDeniedMessage(section)}
+          onClose={() => setModalVisible(false)} 
+        />
+      )}
+    </>
+  );
+};
 
 export const HomeScreen = ({ navigation }: { navigation: MainNavigationProp }) => {
   return (
@@ -27,21 +56,25 @@ export const HomeScreen = ({ navigation }: { navigation: MainNavigationProp }) =
           icon={Calendar}
           title="Congreso 2025"
           onPress={() => navigation.navigate('Congress', { screen: 'CongressHome' })}
+          section={AppSection.CONGRESS}
         />
         <MenuItem
           icon={Users}
           title="Ponentes"
           onPress={() => navigation.navigate('Congress', { screen: 'CongressSpeakers' })}
+          section={AppSection.CONGRESS}
         />
         <MenuItem
-          icon={Award}
-          title="Certificados"
-          onPress={() => navigation.navigate('Certificates')}
+          icon={Newspaper}
+          title="Newsletter"
+          onPress={() => navigation.navigate('Newsletter', { screen: 'NewsletterMain' })}
+          // No requiere sección específica, todos pueden acceder
         />
         <MenuItem
           icon={BookOpen}
           title="Mapa del Sitio"
           onPress={() => navigation.navigate('Congress', { screen: 'CongressMap' })}
+          section={AppSection.CONGRESS}
         />
       </View>
     </View>
