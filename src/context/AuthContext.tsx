@@ -195,10 +195,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
+      console.log('[AuthContext] Iniciando proceso de cierre de sesión');
+      
+      // Borrar auth de AsyncStorage
       await AsyncStorage.removeItem('auth');
+      
+      // Actualizar estado
       dispatch({ type: 'LOGOUT' });
+      
+      console.log('[AuthContext] Cierre de sesión completado');
     } catch (error) {
-      console.error('Error during logout:', error);
+      console.error('[AuthContext] Error durante logout:', error);
+      
+      // Incluso si hay error, intentamos el cierre de sesión básico
+      try {
+        await AsyncStorage.removeItem('auth');
+        dispatch({ type: 'LOGOUT' });
+      } catch (innerError) {
+        console.error('[AuthContext] Error crítico durante logout:', innerError);
+      }
     }
   };
 

@@ -6,9 +6,9 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { COLORS, FONTS, FONT_SIZES } from '../../constants/theme';
 import { useUser } from '../../context/UserContext';
 import { useAuth } from '../../context/AuthContext';
-import { RootStackParamList } from '../../types/navigation';  // <-- Importamos el RootStackParamList
+import { RootStackParamList } from '../../types/navigation';
 
-// Definimos el tipo de navegación, para que TypeScript sepa las rutas
+// Definimos el tipo de navegación
 type RootStackNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const NotificationBadge = ({ count }: { count: number }) => (
@@ -21,19 +21,29 @@ const NotificationBadge = ({ count }: { count: number }) => (
 );
 
 export const Header = () => {
-  // Usamos useNavigation con el tipo correcto
+  // Navegación
   const navigation = useNavigation<RootStackNavigationProp>();
 
+  // Contextos
   const { userName } = useUser();
   const { state, logout } = useAuth();
+  
+  // Estado local
   const notificationCount = 5;
-
+  
+  // Manejar cierre de sesión
   const handleLogout = async () => {
     try {
+      console.log('[Header] Iniciando cierre de sesión');
+      
+      // Cerrar sesión de autenticación principal
       await logout();
-      // No necesitamos navegar manualmente, el NavigationStack se encargará
+      
     } catch (error) {
-      console.error('Error during logout:', error);
+      console.error('[Header] Error durante logout:', error);
+      
+      // Si hay error, intentar un cierre de sesión básico
+      await logout();
     }
   };
 
