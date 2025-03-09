@@ -7,9 +7,20 @@ import { COLORS, FONTS, FONT_SIZES } from '../../constants/theme';
 import { useUser } from '../../context/UserContext';
 import { useAuth } from '../../context/AuthContext';
 import { RootStackParamList } from '../../types/navigation';
+import { BuddyPressService } from '../../services/buddypress';
 
 // Definimos el tipo de navegación
 type RootStackNavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
+// Variable global para almacenar referencia al WebView de BuddyPress activo
+// Esto evita tener que pasar la referencia como prop
+let activeBuddyPressWebViewRef: any = null;
+
+// Función para establecer la referencia activa desde cualquier componente
+export const setActiveBuddyPressWebViewRef = (ref: any) => {
+  activeBuddyPressWebViewRef = ref;
+  console.log('[Header] WebView de BuddyPress registrado para navegación segura');
+};
 
 const NotificationBadge = ({ count }: { count: number }) => (
   <View style={styles.badgeContainer}>
@@ -31,10 +42,37 @@ export const Header = () => {
   // Estado local
   const notificationCount = 5;
   
+  // Función de navegación segura que limpia el estado antes de navegar
+  const navigateSafely = (screenName: keyof RootStackParamList, params?: any) => {
+    console.log(`[Header] Navegación segura a ${screenName}`);
+    
+    // Si tenemos referencia global al WebView, usamos su método de navegación segura
+    if (activeBuddyPressWebViewRef && activeBuddyPressWebViewRef.navigateSafely) {
+      console.log('[Header] Usando WebViewRef global para navegación segura');
+      activeBuddyPressWebViewRef.navigateSafely(screenName, params);
+    } else {
+      // Si no tenemos referencia, hacemos limpieza básica antes de navegar
+      console.log('[Header] WebViewRef global no disponible, haciendo limpieza básica');
+      
+      // Limpiamos token de BuddyPress para forzar nueva autenticación en la siguiente pantalla
+      BuddyPressService.clearToken().then(() => {
+        // Después de limpiar, navegamos normalmente
+        navigation.navigate(screenName, params);
+      }).catch((error) => {
+        console.error('[Header] Error al limpiar token:', error);
+        // En caso de error, navegamos de todas formas
+        navigation.navigate(screenName, params);
+      });
+    }
+  };
+  
   // Manejar cierre de sesión
   const handleLogout = async () => {
     try {
       console.log('[Header] Iniciando cierre de sesión');
+      
+      // Limpiar el token de BuddyPress antes
+      await BuddyPressService.clearToken();
       
       // Cerrar sesión de autenticación principal
       await logout();
@@ -86,13 +124,10 @@ export const Header = () => {
             <NotificationBadge count={notificationCount} />
           </TouchableOpacity>
 
-          {/* Botón que navega a la pestaña "Profile" */}
+          {/* CAMBIO CLAVE: Usamos navegación segura en lugar de directa */}
           <TouchableOpacity 
             style={styles.userInfo}
-            onPress={() => {
-              // Actualiza para navegar directamente a la ruta Profile
-              navigation.navigate('Profile');
-            }}
+            onPress={() => navigateSafely('Profile')}
           >
             <User size={24} color={COLORS.primary} strokeWidth={1.5} />
           </TouchableOpacity>

@@ -1,5 +1,4 @@
-// src/components/shared/BuddyPressWebView.tsx
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import {
   View,
   ActivityIndicator,
@@ -9,6 +8,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import WebView from 'react-native-webview';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
 import { BuddyPressService } from '../../services/buddypress';
 import { COLORS } from '../../constants/theme';
@@ -21,60 +21,88 @@ interface BuddyPressWebViewProps {
   style?: any;
 }
 
-const BuddyPressWebView: React.FC<BuddyPressWebViewProps> = ({
+export interface BuddyPressWebViewRef {
+  reload: () => void;
+  navigateSafely: (screenName: string, params?: any) => void;
+}
+
+const BuddyPressWebView = forwardRef<BuddyPressWebViewRef, BuddyPressWebViewProps>(({
   initialUrl,
   defaultSection = 'activity',
   hideElements = true,
   onNavigationStateChange,
   style,
-}) => {
+}, ref) => {
   const webViewRef = useRef<WebView>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [authUrl, setAuthUrl] = useState<string | null>(null);
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isNavigating, setIsNavigating] = useState(false);
   const { state } = useAuth();
+  const navigation = useNavigation();
+
+  // Script para recargar la página
+  const reloadScript = `
+    (function() {
+      window.location.reload(true);
+      return true;
+    })();
+  `;
+
+  // Exponer métodos a través de la referencia
+  useImperativeHandle(ref, () => ({
+    reload: () => {
+      if (webViewRef.current) {
+        webViewRef.current.reload();
+      }
+    },
+    navigateSafely: (screenName: string, params?: any) => {
+      // Evitar navegaciones duplicadas
+      if (isNavigating) {
+        console.log('[BuddyPressWebView] Navegación ya en progreso, ignorando solicitud');
+        return;
+      }
+      
+      setIsNavigating(true);
+      
+      // Función de navegación simplificada
+      const navigateToScreen = () => {
+        // @ts-ignore
+        navigation.navigate(screenName, params);
+        setTimeout(() => setIsNavigating(false), 300);
+      };
+      
+      // Si no hay WebView o no hay usuario autenticado, navegar directamente
+      if (!webViewRef.current || !state.isAuthenticated || !state.user) {
+        navigateToScreen();
+        return;
+      }
+      
+      // Limpiar token y recargar antes de navegar
+      BuddyPressService.clearToken().then(() => {
+        try {
+          webViewRef.current?.injectJavaScript(reloadScript);
+          setTimeout(navigateToScreen, 300);
+        } catch (error) {
+          console.error('[BuddyPressWebView] Error al recargar:', error);
+          navigateToScreen();
+        }
+      });
+    }
+  }));
 
   // CSS para ocultar elementos no deseados de WordPress/BuddyPress
   const cssRules = `
-    header, 
-    .site-header-wrapper,
-    #masthead,
-    footer,
-    .footer-widgets,
-    .site-footer,
-    #colophon,
-    div[data-elementor-type="footer"],
-    .elementor-location-footer,
-    .elementor-element-ed3f724,
-    video, 
-    .elementor-video,
-    .elementor-background-video-container {
+    div.site-header-wrapper,
+    .site-header-wrapper {
       display: none !important;
       height: 0 !important;
-      max-height: 0 !important;
       min-height: 0 !important;
+      padding: 0 !important;
+      margin: 0 !important;
       visibility: hidden !important;
       opacity: 0 !important;
-    }
-    
-    /* Ajustar el cuerpo de la página */
-    body {
-      padding-top: 0 !important;
-      margin-top: 0 !important;
-    }
-    
-    /* Mostrar contenido principal */
-    .site-content,
-    #content,
-    .content-area,
-    .elementor-location-single,
-    #buddypress {
-      display: block !important;
-      visibility: visible !important;
-      opacity: 1 !important;
-      padding-top: 0 !important;
-      margin-top: 0 !important;
     }
   `;
 
@@ -84,15 +112,7 @@ const BuddyPressWebView: React.FC<BuddyPressWebViewProps> = ({
       const style = document.createElement('style');
       style.type = 'text/css';
       style.appendChild(document.createTextNode(\`${hideElements ? cssRules : ''}\`));
-      document.head.appendChild(style);
-      
-      // Deshabilitar videos
-      const videos = document.querySelectorAll('video');
-      videos.forEach(video => {
-        if(video.pause) video.pause();
-        if(video.remove) video.remove();
-      });
-      
+      document.head.appendChild(style);      
       true;
     })();
   `;
@@ -126,14 +146,40 @@ const BuddyPressWebView: React.FC<BuddyPressWebViewProps> = ({
 
         // Comprobar si ya tenemos un token válido
         const hasToken = await BuddyPressService.hasValidToken();
+        
         if (hasToken) {
+          // Obtenemos el token almacenado
           const token = await BuddyPressService.getStoredToken();
-          setAuthUrl(token?.authUrl || null);
-          return;
+          
+          // Verificar que el token pertenezca al usuario actual
+          // Si el userId del token no coincide con el id del usuario actual, invalidar el token
+          if (token && token.userId !== state.user.id) {
+            console.log('[BuddyPressWebView] Token pertenece a otro usuario, limpiando...');
+            await BuddyPressService.clearToken();
+            // Continuar para obtener un nuevo token para el usuario actual
+          } else if (token?.authUrl) {
+            // El token es válido y pertenece al usuario actual
+            console.log('[BuddyPressWebView] Token válido encontrado para el usuario actual');
+            
+            // Modificar la URL para usar la sección correcta
+            const url = new URL(token.authUrl);
+            url.searchParams.set('redirect', defaultSection);
+            setAuthUrl(url.toString());
+            return;
+          }
         }
 
-        // Obtener nuevo token
-        const bpToken = await BuddyPressService.getAuthToken(state.user.token);
+        // Si llegamos aquí, necesitamos un nuevo token
+        console.log(`[BuddyPressWebView] Solicitando nuevo token para usuario ID: ${state.user.id}, sección: ${defaultSection}`);
+        
+        // Obtener nuevo token especificando la sección a la que queremos redirigir
+        const bpToken = await BuddyPressService.getAuthToken(state.user.token, defaultSection);
+        
+        // Verificar que el nuevo token tenga el ID de usuario correcto
+        if (bpToken.userId !== state.user.id) {
+          console.warn('[BuddyPressWebView] ¡Advertencia! ID de usuario en el token no coincide con usuario actual');
+        }
+        
         setAuthUrl(bpToken.authUrl);
       } catch (error) {
         console.error('Error obteniendo URL de autenticación:', error);
@@ -143,13 +189,13 @@ const BuddyPressWebView: React.FC<BuddyPressWebViewProps> = ({
     };
 
     getAuthUrl();
-  }, [state.isAuthenticated, state.user?.token]);
+  }, [state.isAuthenticated, state.user?.id, state.user?.token, defaultSection]);
 
   // Determinar URL inicial
   const getInitialUrl = () => {
     if (initialUrl) return initialUrl;
     if (authUrl) return authUrl;
-    return 'https://mcnpmexico.org';
+    return `https://mcnpmexico.org/members/${defaultSection}`;
   };
 
   // Manejar errores de carga
@@ -165,9 +211,13 @@ const BuddyPressWebView: React.FC<BuddyPressWebViewProps> = ({
   const handleReload = () => {
     setHasError(false);
     setErrorMessage('');
-    if (webViewRef.current) {
-      webViewRef.current.reload();
-    }
+    
+    // Forzar la obtención de un nuevo token
+    BuddyPressService.clearToken().then(() => {
+      if (webViewRef.current) {
+        webViewRef.current.reload();
+      }
+    });
   };
 
   // Si hay error, mostrar pantalla de error
@@ -201,7 +251,7 @@ const BuddyPressWebView: React.FC<BuddyPressWebViewProps> = ({
           headers: { 'Cache-Control': 'no-cache' }
         }}
         style={[styles.webview, isLoading && styles.hiddenWebview]}
-        onLoadStart={() => setIsLoading(true)}
+        onLoadStart={() => setIsLoading(false)}
         onLoadEnd={() => setIsLoading(false)}
         onError={handleError}
         startInLoadingState={true}
@@ -227,7 +277,7 @@ const BuddyPressWebView: React.FC<BuddyPressWebViewProps> = ({
       )}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

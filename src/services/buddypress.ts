@@ -19,12 +19,13 @@ export class BuddyPressService {
   /**
    * Obtiene un token de autenticación para BuddyPress
    * @param jwtToken Token JWT de la autenticación principal
+   * @param section Sección de BuddyPress a la que se redirigirá (activity, profile, members)
    */
-  static async getAuthToken(jwtToken: string): Promise<BuddyPressToken> {
+  static async getAuthToken(jwtToken: string, section: string = 'activity'): Promise<BuddyPressToken> {
     try {
       const response = await axios.post(
         `${API_URL}/bp-auth`,
-        {},
+        { redirect: section }, // Añadimos el parámetro redirect en el cuerpo de la solicitud
         {
           headers: {
             Authorization: `Bearer ${jwtToken}`,
@@ -34,11 +35,19 @@ export class BuddyPressService {
       );
 
       if (response.data && response.data.success) {
+        // Asegurémonos de que la URL de autenticación tiene el parámetro redirect correcto
+        let authUrl = response.data.auth_url;
+        
+        // Si la respuesta ya incluye un parámetro redirect, asegurémonos de que sea el correcto
+        const url = new URL(authUrl);
+        url.searchParams.set('redirect', section); // Establecemos o reemplazamos el parámetro redirect
+        authUrl = url.toString();
+        
         const buddyPressToken: BuddyPressToken = {
           token: response.data.token,
           userId: response.data.user_id,
           expires: response.data.expires,
-          authUrl: response.data.auth_url,
+          authUrl: authUrl,
         };
 
         // Guardar el token en AsyncStorage

@@ -7,6 +7,7 @@ import {
   WP_ROLE_MAPPING, 
   ALLOWED_ROLES 
 } from '../types/user';
+import { BuddyPressService } from '../services/buddypress';
 
 type AuthAction =
   | { type: 'RESTORE_AUTH'; payload: { user: User } }
@@ -197,6 +198,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('[AuthContext] Iniciando proceso de cierre de sesión');
       
+      // Limpiar token de BuddyPress para evitar problemas de persistencia entre usuarios
+      await BuddyPressService.clearToken();
+      console.log('[AuthContext] Token de BuddyPress eliminado');
+      
+      // Intentar eliminar cualquier otra clave de AsyncStorage relacionada con BuddyPress
+      try {
+        await AsyncStorage.removeItem('buddypress_token');
+        await AsyncStorage.removeItem('bp_auth_token');
+      } catch (bpError) {
+        console.error('[AuthContext] Error al eliminar tokens adicionales de BuddyPress:', bpError);
+      }
+      
       // Borrar auth de AsyncStorage
       await AsyncStorage.removeItem('auth');
       
@@ -209,7 +222,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Incluso si hay error, intentamos el cierre de sesión básico
       try {
-        await AsyncStorage.removeItem('auth');
+        // Limpieza de emergencia de todos los tokens posibles
+        await Promise.all([
+          AsyncStorage.removeItem('auth'),
+          AsyncStorage.removeItem('buddypress_token'),
+          AsyncStorage.removeItem('bp_auth_token')
+        ]);
+        
         dispatch({ type: 'LOGOUT' });
       } catch (innerError) {
         console.error('[AuthContext] Error crítico durante logout:', innerError);
