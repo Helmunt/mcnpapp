@@ -30,7 +30,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "newArchEnabled": true,
+      "newArchEnabled": false,
       "package": "com.mcnp.mcnpapp",
       "versionCode": 1,
       "permissions": [
