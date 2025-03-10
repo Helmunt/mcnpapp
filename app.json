@@ -16,7 +16,7 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "newArchEnabled": true,
+      "newArchEnabled": false,
       "bundleIdentifier": "com.mcnp.mcnpapp",
       "buildNumber": "1",
       "infoPlist": {

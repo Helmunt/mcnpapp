@@ -25,7 +25,7 @@
     "expo-notifications": "0.29.13",
     "expo-status-bar": "2.0.1",
     "formik": "^2.4.6",
-    "lucide-react-native": "^0.460.0",
+    "lucide-react-native": "^0.309.0",
     "react": "^18.3.1",
     "react-native": "^0.76.7",
     "react-native-safe-area-context": "^4.12.0",
