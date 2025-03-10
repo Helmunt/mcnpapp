@@ -1,29 +1,37 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, Platform, Text } from 'react-native';
-import { Calendar, Users, BookOpen, Newspaper } from 'lucide-react-native';
+import Feather from '@expo/vector-icons/Feather';
+import type { IconProps } from '@expo/vector-icons/build/createIconSet';
 import { COLORS, FONTS, FONT_SIZES } from '../../constants/theme';
 import { MainNavigationProp } from '../../types/navigation';
 import { useAuth } from '../../context/AuthContext';
 import { AppSection, hasAccessToSection, getAccessDeniedMessage } from '../../services/permissionService';
 import AccessRestrictedModal from '../../components/shared/AccessRestrictedModal';
 
+const iconMap = {
+  Calendar: 'calendar',
+  Users: 'users',
+  BookOpen: 'book-open',
+  Newspaper: 'file-text',
+} as const;
+
+type IconNameType = keyof typeof iconMap;
+
 interface MenuItemProps {
-  icon: any;
+  iconName: IconNameType;
   title: string;
   onPress: () => void;
   section?: AppSection;
 }
 
-const MenuItem = ({ icon: Icon, title, onPress, section }: MenuItemProps) => {
+const MenuItem = ({ iconName, title, onPress, section }: MenuItemProps) => {
   const { state } = useAuth();
   const [modalVisible, setModalVisible] = useState(false);
 
   const handlePress = () => {
-    // Si no hay sección específica o el usuario tiene acceso, permitir la navegación
     if (!section || hasAccessToSection(state.user?.role, section)) {
       onPress();
     } else {
-      // Mostrar modal si el usuario no tiene los permisos
       setModalVisible(true);
     }
   };
@@ -32,16 +40,16 @@ const MenuItem = ({ icon: Icon, title, onPress, section }: MenuItemProps) => {
     <>
       <TouchableOpacity style={styles.menuItem} onPress={handlePress}>
         <View style={styles.iconContainer}>
-          <Icon size={32} color={COLORS.primary} strokeWidth={1.5} />
+          <Feather name={iconMap[iconName]} size={32} color={COLORS.primary} />
         </View>
         <Text style={styles.menuText}>{title}</Text>
       </TouchableOpacity>
-      
+
       {section && (
-        <AccessRestrictedModal 
-          isVisible={modalVisible} 
+        <AccessRestrictedModal
+          isVisible={modalVisible}
           message={getAccessDeniedMessage(section)}
-          onClose={() => setModalVisible(false)} 
+          onClose={() => setModalVisible(false)}
         />
       )}
     </>
@@ -53,25 +61,24 @@ export const HomeScreen = ({ navigation }: { navigation: MainNavigationProp }) =
     <View style={styles.container}>
       <View style={styles.menuGrid}>
         <MenuItem
-          icon={Calendar}
+          iconName="Calendar"
           title="Congreso 2025"
           onPress={() => navigation.navigate('Congress', { screen: 'CongressHome' })}
           section={AppSection.CONGRESS}
         />
         <MenuItem
-          icon={Users}
+          iconName="Users"
           title="Ponentes"
           onPress={() => navigation.navigate('Congress', { screen: 'CongressSpeakers' })}
           section={AppSection.CONGRESS}
         />
         <MenuItem
-          icon={Newspaper}
+          iconName="Newspaper"
           title="Newsletter"
           onPress={() => navigation.navigate('Newsletter', { screen: 'NewsletterMain' })}
-          // No requiere sección específica, todos pueden acceder
         />
         <MenuItem
-          icon={BookOpen}
+          iconName="BookOpen"
           title="Mapa del Sitio"
           onPress={() => navigation.navigate('Congress', { screen: 'CongressMap' })}
           section={AppSection.CONGRESS}

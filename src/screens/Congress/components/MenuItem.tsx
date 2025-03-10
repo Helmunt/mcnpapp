@@ -1,12 +1,20 @@
 import React from 'react';
 import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
+import Feather from '@expo/vector-icons/Feather';
 import { COLORS, FONTS, FONT_SIZES } from '../../../constants/theme';
-import { MenuItemProps } from '../../../types/congress';
 
-export const MenuItem = ({ icon: Icon, title, onPress }: MenuItemProps) => (
+export type FeatherIconName = keyof typeof Feather.glyphMap;
+
+interface MenuItemProps {
+  iconName: FeatherIconName;
+  title: string;
+  onPress: () => void;
+}
+
+export const MenuItem = ({ iconName, title, onPress }: MenuItemProps) => (
   <TouchableOpacity style={styles.menuItem} onPress={onPress}>
     <View style={styles.iconContainer}>
-      <Icon size={32} color={COLORS.primary} strokeWidth={1.5} />
+      <Feather name={iconName} size={32} color={COLORS.primary} strokeWidth={1.5} />
     </View>
     <Text style={styles.menuText}>{title}</Text>
   </TouchableOpacity>

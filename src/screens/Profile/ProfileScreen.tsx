@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, Platform, Keyboard, KeyboardEvent, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ArrowLeft } from 'lucide-react-native';
+import Feather from '@expo/vector-icons/Feather';
 import { globalStyles } from '../../styles/global';
 import { COLORS } from '../../constants/theme';
 import { RootStackParamList } from '../../types/navigation';
@@ -116,7 +116,7 @@ export const ProfileScreen = () => {
           onPress={handleGoToHome}
           activeOpacity={0.7}
         >
-          <ArrowLeft size={24} color={COLORS.white} />
+          <Feather name="arrow-left" size={24} color={COLORS.white} />
         </TouchableOpacity>
       </View>
     </View>

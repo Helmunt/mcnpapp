@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform, Image } from 'react-native';
-import { Bell, User, LogOut } from 'lucide-react-native';
+import Feather from '@expo/vector-icons/Feather';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { COLORS, FONTS, FONT_SIZES } from '../../constants/theme';
@@ -13,7 +13,6 @@ import { BuddyPressService } from '../../services/buddypress';
 type RootStackNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 // Variable global para almacenar referencia al WebView de BuddyPress activo
-// Esto evita tener que pasar la referencia como prop
 let activeBuddyPressWebViewRef: any = null;
 
 // Función para establecer la referencia activa desde cualquier componente
@@ -32,63 +31,39 @@ const NotificationBadge = ({ count }: { count: number }) => (
 );
 
 export const Header = () => {
-  // Navegación
   const navigation = useNavigation<RootStackNavigationProp>();
-
-  // Contextos
   const { userName } = useUser();
   const { state, logout } = useAuth();
-  
-  // Estado local
   const notificationCount = 5;
-  
-  // Función de navegación segura que limpia el estado antes de navegar
+
   const navigateSafely = (screenName: keyof RootStackParamList, params?: any) => {
     console.log(`[Header] Navegación segura a ${screenName}`);
-    
-    // Si tenemos referencia global al WebView, usamos su método de navegación segura
     if (activeBuddyPressWebViewRef && activeBuddyPressWebViewRef.navigateSafely) {
       console.log('[Header] Usando WebViewRef global para navegación segura');
       activeBuddyPressWebViewRef.navigateSafely(screenName, params);
     } else {
-      // Si no tenemos referencia, hacemos limpieza básica antes de navegar
       console.log('[Header] WebViewRef global no disponible, haciendo limpieza básica');
-      
-      // Limpiamos token de BuddyPress para forzar nueva autenticación en la siguiente pantalla
-      BuddyPressService.clearToken().then(() => {
-        // Después de limpiar, navegamos normalmente
-        navigation.navigate(screenName, params);
-      }).catch((error) => {
-        console.error('[Header] Error al limpiar token:', error);
-        // En caso de error, navegamos de todas formas
-        navigation.navigate(screenName, params);
-      });
+      BuddyPressService.clearToken()
+        .then(() => navigation.navigate(screenName, params))
+        .catch((error) => {
+          console.error('[Header] Error al limpiar token:', error);
+          navigation.navigate(screenName, params);
+        });
     }
   };
-  
-  // Manejar cierre de sesión
+
   const handleLogout = async () => {
     try {
       console.log('[Header] Iniciando cierre de sesión');
-      
-      // Limpiar el token de BuddyPress antes
       await BuddyPressService.clearToken();
-      
-      // Cerrar sesión de autenticación principal
       await logout();
-      
     } catch (error) {
       console.error('[Header] Error durante logout:', error);
-      
-      // Si hay error, intentar un cierre de sesión básico
       await logout();
     }
   };
 
-  // Usamos el nombre del estado de auth primero, luego el del contexto de usuario
   const displayName = state.user?.firstName || userName || 'Usuario';
-  
-  // Verificamos el rol usando las constantes correctas
   const isAdmin = state.user?.role === 'Administrador';
   const isCongreso = state.user?.role === 'Congreso';
   const isSuscriptor = state.user?.role === 'Suscriptor';
@@ -96,47 +71,23 @@ export const Header = () => {
   return (
     <View style={styles.headerContainer}>
       <View style={styles.header}>
-        <Image 
-          source={require('../../assets/images/Logo.png')} 
-          style={styles.logo}
-          resizeMode="contain"
-        />
+        <Image source={require('../../assets/images/Logo.png')} style={styles.logo} resizeMode="contain" />
         <View style={styles.greetingContainer}>
-          <Text style={styles.greeting}>
-            Hola {displayName}
-          </Text>
-          {isAdmin && (
-            <Text style={styles.roleText}>(Administrador)</Text>
-          )}
-          {isCongreso && (
-            <Text style={styles.roleText}>(Congreso)</Text>
-          )}
-          {isSuscriptor && (
-           <Text style={styles.roleText}>(Suscriptor)</Text>
-         )}
+          <Text style={styles.greeting}>Hola {displayName}</Text>
+          {isAdmin && <Text style={styles.roleText}>(Administrador)</Text>}
+          {isCongreso && <Text style={styles.roleText}>(Congreso)</Text>}
+          {isSuscriptor && <Text style={styles.roleText}>(Suscriptor)</Text>}
         </View>
         <View style={styles.headerRight}>
-          <TouchableOpacity 
-            style={styles.headerIcon}
-            onPress={() => console.log('Notifications')}
-          >
-            <Bell size={24} color={COLORS.primary} strokeWidth={1.5} />
+          <TouchableOpacity style={styles.headerIcon} onPress={() => console.log('Notifications')}>
+            <Feather name="bell" size={20} color={COLORS.primary} />
             <NotificationBadge count={notificationCount} />
           </TouchableOpacity>
-
-          {/* CAMBIO CLAVE: Usamos navegación segura en lugar de directa */}
-          <TouchableOpacity 
-            style={styles.userInfo}
-            onPress={() => navigateSafely('Profile')}
-          >
-            <User size={24} color={COLORS.primary} strokeWidth={1.5} />
+          <TouchableOpacity style={styles.userInfo} onPress={() => navigateSafely('Profile')}>
+            <Feather name="user" size={20} color={COLORS.primary} />
           </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.logoutButton}
-            onPress={handleLogout}
-          >
-            <LogOut size={24} color={COLORS.error} strokeWidth={1.5} />
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Feather name="log-out" size={20} color={COLORS.error} />
           </TouchableOpacity>
         </View>
       </View>
@@ -204,8 +155,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerIcon: {
-    position: 'relative',
-    padding: 8,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.lightGray,
+    borderRadius: 16,
+    marginHorizontal: 4,
   },
   badgeContainer: {
     position: 'absolute',
@@ -213,9 +169,9 @@ const styles = StyleSheet.create({
     right: 2,
   },
   notificationBadge: {
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
     backgroundColor: COLORS.error,
     borderWidth: 1.5,
     borderColor: COLORS.white,
@@ -234,21 +190,29 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -2,
     right: -2,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: COLORS.error,
     opacity: 0.3,
     zIndex: 0,
   },
   userInfo: {
-    padding: 8,
-    borderRadius: 20,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: COLORS.lightGray,
+    borderRadius: 16,
+    marginHorizontal: 4,
   },
   logoutButton: {
-    padding: 8,
-    borderRadius: 20,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: COLORS.lightGray,
+    borderRadius: 16,
+    marginHorizontal: 4,
   },
 });

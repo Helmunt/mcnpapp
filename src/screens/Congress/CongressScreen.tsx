@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
-import { Calendar, Users, Award, Map, QrCode, BookOpen } from 'lucide-react-native';
+import Feather from '@expo/vector-icons/Feather';
 import { COLORS } from '../../constants/theme';
 import { MenuItem } from './components/MenuItem';
 import type { CongressNavigationProp } from '../../types/navigation';
@@ -14,32 +14,32 @@ export const CongressScreen = ({ navigation }: Props) => {
     <View style={styles.container}>
       <View style={styles.menuGrid}>
         <MenuItem
-          icon={Calendar}
+          iconName="calendar"
           title="Agenda del Congreso"
           onPress={() => navigation.navigate('CongressAgenda')}
         />
         <MenuItem
-          icon={Users}
+          iconName="users"
           title="Ponentes"
           onPress={() => navigation.navigate('CongressSpeakers')}
         />
         <MenuItem
-          icon={Award}
+          iconName="award"
           title="Certificados"
           onPress={() => navigation.navigate('CongressCertificates')}
-/>
+        />
         <MenuItem
-          icon={Map}
+          iconName="map"
           title="Mapa del Sitio"
           onPress={() => navigation.navigate('CongressMap')}
         />
         <MenuItem
-          icon={QrCode}
+          iconName="grid"
           title="Código QR"
           onPress={() => navigation.navigate('CongressQR')}
         />
         <MenuItem
-          icon={BookOpen}
+          iconName="book-open"
           title="QUIZ"
           onPress={() => navigation.navigate('CongressQuiz')}
         />

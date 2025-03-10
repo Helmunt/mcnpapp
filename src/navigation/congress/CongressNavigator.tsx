@@ -2,7 +2,7 @@ import React from 'react';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ArrowLeft } from 'lucide-react-native';
+import Feather from '@expo/vector-icons/Feather';
 import { CongressScreen } from '../../screens/Congress/CongressScreen';
 import { AgendaScreen } from '../../screens/Congress/screens/AgendaScreen';
 import { SpeakersScreen } from '../../screens/Congress/screens/SpeakersScreen';
@@ -15,19 +15,17 @@ import { COLORS } from '../../constants/theme';
 
 const Stack = createNativeStackNavigator<CongressStackParamList>();
 
-// Interface para las props del CustomHeader
 interface CustomHeaderProps {
   title: string;
   navigation: NativeStackNavigationProp<CongressStackParamList>;
 }
 
-// Componente personalizado para el header
 const CustomHeader = ({ 
   title, 
   navigation 
 }: { 
   title: string; 
-  navigation: any; // Usamos any temporalmente para resolver el error
+  navigation: any; 
 }) => {
   return (
     <View style={styles.headerContainer}>
@@ -35,17 +33,18 @@ const CustomHeader = ({
         onPress={() => navigation.goBack()}
         style={styles.backButton}
       >
-        <ArrowLeft size={20} color={COLORS.primary} />
+        <Feather name="arrow-left" size={20} color={COLORS.primary} />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>{title}</Text>
     </View>
   );
 };
+
 export const CongressNavigator = () => {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerShown: true, // Se asegura que sea booleano explícito
+        headerShown: true,
         headerStyle: {
           backgroundColor: COLORS.white,
         },
@@ -141,6 +140,7 @@ export const CongressNavigator = () => {
     </Stack.Navigator>
   );
 };
+
 const styles = StyleSheet.create({
   headerContainer: {
     flexDirection: 'row',
@@ -158,6 +158,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: COLORS.primary,
-    marginRight: 28, // Compensa el espacio del botón de retroceso para un centrado real
-  }
+    marginRight: 28,
+  },
 });

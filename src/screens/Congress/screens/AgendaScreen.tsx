@@ -2,7 +2,6 @@ import React, { useState, useRef } from 'react';
 import { View, StyleSheet, ActivityIndicator, Platform, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import WebView from 'react-native-webview';
-import { ArrowLeft } from 'lucide-react-native';
 import { COLORS } from '../../../constants/theme';
 
 export const AgendaScreen = () => {

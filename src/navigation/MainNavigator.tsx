@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Platform, View, TouchableOpacity, GestureResponderEvent, Text, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Home, Users, Newspaper, Calendar, ArrowLeft, UserCircle } from 'lucide-react-native';
+import Feather from '@expo/vector-icons/Feather';
 import { COLORS, FONTS, FONT_SIZES } from '../constants/theme';
 import { Header } from '../components/shared/Header';
 import { useAuth } from '../context/AuthContext';
@@ -28,11 +28,10 @@ const SocialStack = createNativeStackNavigator<SocialStackParamList>();
 const NewsletterStack = createNativeStackNavigator<NewsletterStackParamList>();
 const ProfileStack = createNativeStackNavigator<ProfileStackParamList>();
 
-// Componente para proteger acceso a pestañas
 const ProtectedTabScreen = ({ children, section }: { children: React.ReactNode, section: AppSection }) => {
   const { state } = useAuth();
   const [showModal, setShowModal] = useState(!hasAccessToSection(state.user?.role, section));
-  
+
   if (showModal) {
     return (
       <View style={{ flex: 1, backgroundColor: COLORS.white }}>
@@ -44,11 +43,10 @@ const ProtectedTabScreen = ({ children, section }: { children: React.ReactNode, 
       </View>
     );
   }
-  
+
   return <>{children}</>;
 };
 
-// Componente para manejar la navegación a las pestañas protegidas
 const ProtectedTabButton = ({
   children,
   onPress,
@@ -78,12 +76,12 @@ const ProtectedTabButton = ({
       >
         {children}
       </TouchableOpacity>
-      
+
       {section && (
-        <AccessRestrictedModal 
-          isVisible={modalVisible} 
+        <AccessRestrictedModal
+          isVisible={modalVisible}
           message={getAccessDeniedMessage(section)}
-          onClose={() => setModalVisible(false)} 
+          onClose={() => setModalVisible(false)}
         />
       )}
     </>
@@ -106,7 +104,6 @@ const TabBarButton = ({
   </TouchableOpacity>
 );
 
-// Componente CustomHeader para pantallas con flecha de retroceso
 const CustomHeader = ({
   title,
   navigation,
@@ -117,14 +114,13 @@ const CustomHeader = ({
   return (
     <View style={styles.headerContainer}>
       <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-        <ArrowLeft size={20} color={COLORS.primary} />
+        <Feather name="arrow-left" size={20} color={COLORS.primary} />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>{title}</Text>
     </View>
   );
 };
 
-// Navegador para Social con su propio header
 const SocialNavigator = () => {
   return (
     <SocialStack.Navigator
@@ -148,7 +144,6 @@ const SocialNavigator = () => {
   );
 };
 
-// Navegador para Newsletter con su propio header
 const NewsletterNavigator = () => {
   return (
     <NewsletterStack.Navigator
@@ -172,7 +167,6 @@ const NewsletterNavigator = () => {
   );
 };
 
-// Navegador para Profile con su propio header
 const ProfileNavigator = () => {
   return (
     <ProfileStack.Navigator
@@ -196,7 +190,6 @@ const ProfileNavigator = () => {
   );
 };
 
-// Componente que envuelve el CongressNavigator con protección
 const ProtectedCongressNavigator = () => {
   return (
     <ProtectedTabScreen section={AppSection.CONGRESS}>
@@ -205,11 +198,9 @@ const ProtectedCongressNavigator = () => {
   );
 };
 
-// Tab Navigator sin la pestaña de Profile
 const TabsNavigator = () => {
   return (
     <View style={{ flex: 1 }}>
-      {/* Cabecera personalizada en la parte superior */}
       <Header />
       <Tab.Navigator
         screenOptions={{
@@ -259,7 +250,7 @@ const TabsNavigator = () => {
           component={HomeScreen}
           options={{
             title: 'Inicio',
-            tabBarIcon: ({ color }) => <Home size={24} color={color} strokeWidth={1.5} />,
+            tabBarIcon: ({ color }) => <Feather name="home" size={24} color={color} strokeWidth={1.5} />,
             tabBarButton: (props) => <TabBarButton {...props} />,
           }}
         />
@@ -268,7 +259,7 @@ const TabsNavigator = () => {
           component={SocialNavigator}
           options={{
             headerShown: false,
-            tabBarIcon: ({ color }) => <Users size={24} color={color} strokeWidth={1.5} />,
+            tabBarIcon: ({ color }) => <Feather name="users" size={24} color={color} strokeWidth={1.5} />,
             tabBarButton: (props) => <TabBarButton {...props} />,
           }}
         />
@@ -277,7 +268,7 @@ const TabsNavigator = () => {
           component={NewsletterNavigator}
           options={{
             headerShown: false,
-            tabBarIcon: ({ color }) => <Newspaper size={24} color={color} strokeWidth={1.5} />,
+            tabBarIcon: ({ color }) => <Feather name="file-text" size={24} color={color} strokeWidth={1.5} />,
             tabBarButton: (props) => <TabBarButton {...props} />,
           }}
         />
@@ -286,7 +277,7 @@ const TabsNavigator = () => {
           component={ProtectedCongressNavigator}
           options={{
             headerShown: false,
-            tabBarIcon: ({ color }) => <Calendar size={24} color={color} strokeWidth={1.5} />,
+            tabBarIcon: ({ color }) => <Feather name="calendar" size={24} color={color} strokeWidth={1.5} />,
             tabBarButton: (props) => (
               <ProtectedTabButton {...props} section={AppSection.CONGRESS} />
             ),
@@ -297,7 +288,6 @@ const TabsNavigator = () => {
   );
 };
 
-// Main Navigator que incluye TabsNavigator y ProfileNavigator como rutas separadas
 const MainNavigator = () => {
   return (
     <Stack.Navigator
@@ -307,10 +297,9 @@ const MainNavigator = () => {
       }}
     >
       <Stack.Screen name="MainTabs" component={TabsNavigator} />
-      
-      <Stack.Screen 
-        name="Profile" 
-        component={ProfileScreen} 
+      <Stack.Screen
+        name="Profile"
+        component={ProfileScreen}
         options={{
           headerShown: false,
         }}

@@ -14,7 +14,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { Formik, FormikProps } from 'formik';
 import * as Yup from 'yup';
-import { Eye, EyeOff } from 'lucide-react-native';
+import Feather from '@expo/vector-icons/Feather';
 import { COLORS, FONTS, FONT_SIZES } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import { useUser } from '../../context/UserContext';
@@ -41,7 +41,6 @@ export const LoginScreen = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
-  // Efecto para manejar la navegación cuando el usuario está autenticado
   useEffect(() => {
     if (state.isAuthenticated && state.user) {
       setUserName(state.user.firstName);
@@ -127,9 +126,9 @@ export const LoginScreen = () => {
                   onPress={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <EyeOff size={24} color={COLORS.gray} />
+                    <Feather name="eye-off" size={24} color={COLORS.gray} />
                   ) : (
-                    <Eye size={24} color={COLORS.gray} />
+                    <Feather name="eye" size={24} color={COLORS.gray} />
                   )}
                 </TouchableOpacity>
               </View>
@@ -155,7 +154,6 @@ export const LoginScreen = () => {
               </TouchableOpacity>
             </View>
 
-            {/* Mostrar error del estado o error local */}
             {(state.error || loginError) && (
               <Text style={styles.errorMessage}>{state.error || loginError}</Text>
             )}
@@ -180,7 +178,6 @@ export const LoginScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  // ... mantener todos los estilos existentes sin cambios
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -311,7 +308,6 @@ const styles = StyleSheet.create({
     padding: 15,
     backgroundColor: 'rgba(255, 0, 0, 0.08)',
     borderRadius: 8,
-    // Eliminar las etiquetas HTML del mensaje
-    transform: [{ translateY: -10 }] // Ajusta la posición vertical
+    transform: [{ translateY: -10 }],
   },
 });
