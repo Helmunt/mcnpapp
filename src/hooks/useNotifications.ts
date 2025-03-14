@@ -84,8 +84,10 @@ export const useNotifications = () => {
     responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
       console.log('Respuesta de notificación recibida:', response);
       
+      // Verificar que trigger existe antes de acceder a su tipo
+      const trigger = response.notification.request.trigger;
       // Si la notificación fue recibida en segundo plano, procesarla
-      if (response.notification.request.trigger.type === 'push') {
+      if (trigger && 'type' in trigger && trigger.type === 'push') {
         handleBackgroundNotification(response.notification);
       }
       
