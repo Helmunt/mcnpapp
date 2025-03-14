@@ -9,11 +9,27 @@ import { COLORS } from './src/constants/theme';
 import { RootStackParamList } from './src/types/navigation';
 import { UserProvider } from './src/context/UserContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { useNotifications } from './src/hooks/useNotifications';
+import { updatePushTokenIfNeeded } from './src/services/pushTokenService';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function NavigationStack() {
   const { state } = useAuth();
+  // Inicializar las notificaciones solo cuando el usuario está autenticado
+  const { expoPushToken } = useNotifications();
+
+  useEffect(() => {
+    // Enviar el token al servidor cuando esté disponible y el usuario autenticado
+    const sendTokenToServer = async () => {
+      if (expoPushToken && state.isAuthenticated && state.user?.token) {
+        console.log('Enviando token de notificaciones al servidor:', expoPushToken);
+        await updatePushTokenIfNeeded(expoPushToken, state.user.token);
+      }
+    };
+
+    sendTokenToServer();
+  }, [expoPushToken, state.isAuthenticated, state.user]);
 
   useEffect(() => {
     const backAction = () => {

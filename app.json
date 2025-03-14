@@ -22,7 +22,9 @@
       "infoPlist": {
         "NSCameraUsageDescription": "Esta aplicación utiliza la cámara para escanear códigos QR",
         "NSPhotoLibraryUsageDescription": "Esta aplicación necesita acceso a la galería para seleccionar imágenes",
-        "NSPhotoLibraryAddUsageDescription": "Esta aplicación guarda imágenes en tu galería"
+        "NSPhotoLibraryAddUsageDescription": "Esta aplicación guarda imágenes en tu galería",
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": ["remote-notification"]
       }
     },
     "android": {
@@ -38,8 +40,11 @@
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
         "INTERNET",
-        "VIBRATE"
-      ]
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED"
+      ],
+      "googleServicesFile": "./google-services.json",
+      "useNextNotificationsApi": true
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -48,7 +53,15 @@
       "expo-font",
       "expo-camera",
       "expo-image-picker",
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
+        }
+      ]
     ],
     "description": "Aplicación oficial del MCNP México (Consorcio Mexicano de Neuropsicofarmacología)",
     "owner": "hhernandezro",
@@ -56,6 +69,12 @@
       "eas": {
         "projectId": "38f43a31-97fb-446d-a212-f0d43022f0aa"
       }
+    },
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/38f43a31-97fb-446d-a212-f0d43022f0aa"
     }
   }
 }

@@ -1,0 +1,1 @@
+export const API_URL = 'https://mcnpmexico.org'; // Ajusta esta URL según tu entorno
