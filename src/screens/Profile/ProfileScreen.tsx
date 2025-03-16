@@ -6,7 +6,7 @@ import Feather from '@expo/vector-icons/Feather';
 import { globalStyles } from '../../styles/global';
 import { COLORS } from '../../constants/theme';
 import { RootStackParamList } from '../../types/navigation';
-import { Header } from '../../components/shared/Header';
+import Header from '../../components/shared/Header';
 import BuddyPressWebView, { BuddyPressWebViewRef } from '../../components/shared/BuddyPressWebView';
 import { setActiveBuddyPressWebViewRef } from '../../components/shared/Header';
 

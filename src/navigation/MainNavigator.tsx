@@ -1,19 +1,32 @@
 import React, { useState } from 'react';
-import { Platform, View, TouchableOpacity, GestureResponderEvent, Text, StyleSheet } from 'react-native';
+import { 
+  Platform, 
+  View, 
+  TouchableOpacity, 
+  GestureResponderEvent, 
+  Text, 
+  StyleSheet,
+  ActivityIndicator,
+  RefreshControl,
+  Alert
+} from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useNavigation } from '@react-navigation/native';
 import Feather from '@expo/vector-icons/Feather';
 import { COLORS, FONTS, FONT_SIZES } from '../constants/theme';
-import { Header } from '../components/shared/Header';
+import Header from '../components/shared/Header';
 import { useAuth } from '../context/AuthContext';
 import { AppSection, hasAccessToSection, getAccessDeniedMessage } from '../services/permissionService';
 import AccessRestrictedModal from '../components/shared/AccessRestrictedModal';
+import useNotifications from '../hooks/useNotifications';
 
 import { HomeScreen } from '../screens/Home/HomeScreen';
 import { SocialScreen } from '../screens/Social/SocialScreen';
 import { NewsletterScreen } from '../screens/Newsletter/NewsletterScreen';
 import { CongressNavigator } from './congress/CongressNavigator';
 import { ProfileScreen } from '../screens/Profile/ProfileScreen';
+import NotificationsScreen from '../screens/Notifications/NotificationsScreen';
 import {
   MainStackParamList,
   MainTabParamList,
@@ -104,7 +117,8 @@ const TabBarButton = ({
   </TouchableOpacity>
 );
 
-const CustomHeader = ({
+// Este nombre de componente puede causar conflictos si ya existe en otros archivos
+const NavigatorCustomHeader = ({
   title,
   navigation,
 }: {
@@ -137,7 +151,7 @@ const SocialNavigator = () => {
         name="SocialMain"
         component={SocialScreen}
         options={({ navigation }) => ({
-          header: () => <CustomHeader title="Social" navigation={navigation} />,
+          header: () => <NavigatorCustomHeader title="Social" navigation={navigation} />,
         })}
       />
     </SocialStack.Navigator>
@@ -160,7 +174,7 @@ const NewsletterNavigator = () => {
         name="NewsletterMain"
         component={NewsletterScreen}
         options={({ navigation }) => ({
-          header: () => <CustomHeader title="Newsletter" navigation={navigation} />,
+          header: () => <NavigatorCustomHeader title="Newsletter" navigation={navigation} />,
         })}
       />
     </NewsletterStack.Navigator>
@@ -183,7 +197,7 @@ const ProfileNavigator = () => {
         name="ProfileMain"
         component={ProfileScreen}
         options={({ navigation }) => ({
-          header: () => <CustomHeader title="Mi Perfil" navigation={navigation} />,
+          header: () => <NavigatorCustomHeader title="Mi Perfil" navigation={navigation} />,
         })}
       />
     </ProfileStack.Navigator>
@@ -199,6 +213,9 @@ const ProtectedCongressNavigator = () => {
 };
 
 const TabsNavigator = () => {
+  // Usar el hook de notificaciones para obtener el conteo
+  const { unreadCount } = useNotifications();
+
   return (
     <View style={{ flex: 1 }}>
       <Header />
@@ -300,6 +317,13 @@ const MainNavigator = () => {
       <Stack.Screen
         name="Profile"
         component={ProfileScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
         options={{
           headerShown: false,
         }}

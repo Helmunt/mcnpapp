@@ -11,12 +11,16 @@ export type RootStackParamList = {
   // Si "Profile" no se utiliza en el RootStack, podemos removerlo.
   // Si de verdad la usas directamente desde aquí, la dejamos:
   Profile: undefined;
+  // Añadir la pantalla de notificaciones al stack principal
+  Notifications: undefined;
 };
 
 // Stack dentro de Main
 export type MainStackParamList = {
   MainTabs: NavigatorScreenParams<MainTabParamList>;
   Profile: NavigatorScreenParams<ProfileStackParamList>;
+  // También podríamos añadirla aquí si queremos que sea accesible desde Main
+  Notifications: undefined;
 };
 
 // Stack del Congreso

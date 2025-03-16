@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform, Image } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import { useNavigation } from '@react-navigation/native';
@@ -8,9 +8,16 @@ import { useUser } from '../../context/UserContext';
 import { useAuth } from '../../context/AuthContext';
 import { RootStackParamList } from '../../types/navigation';
 import { BuddyPressService } from '../../services/buddypress';
+import { getUnreadCount } from '../../services/notificationHistoryService';
 
 // Definimos el tipo de navegación
 type RootStackNavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
+// Tipo de props para el componente Header
+interface HeaderProps {
+  title?: string;
+  showBackButton?: boolean;
+}
 
 // Variable global para almacenar referencia al WebView de BuddyPress activo
 let activeBuddyPressWebViewRef: any = null;
@@ -21,20 +28,45 @@ export const setActiveBuddyPressWebViewRef = (ref: any) => {
   console.log('[Header] WebView de BuddyPress registrado para navegación segura');
 };
 
-const NotificationBadge = ({ count }: { count: number }) => (
-  <View style={styles.badgeContainer}>
-    <View style={styles.notificationBadge}>
-      <Text style={styles.badgeText}>{count > 99 ? '99+' : count}</Text>
+const NotificationBadge = ({ count }: { count: number }) => {
+  if (count <= 0) return null;
+  
+  return (
+    <View style={styles.badgeContainer}>
+      <View style={styles.notificationBadge}>
+        <Text style={styles.badgeText}>{count > 99 ? '99+' : count}</Text>
+      </View>
+      <View style={styles.badgePulse} />
     </View>
-    <View style={styles.badgePulse} />
-  </View>
-);
+  );
+};
 
-export const Header = () => {
+const Header: React.FC<HeaderProps> = ({ title, showBackButton = false }) => {
   const navigation = useNavigation<RootStackNavigationProp>();
   const { userName } = useUser();
   const { state, logout } = useAuth();
-  const notificationCount = 5;
+  const [notificationCount, setNotificationCount] = useState(0);
+
+  // Cargar el contador de notificaciones no leídas
+  useEffect(() => {
+    const loadNotificationCount = async () => {
+      try {
+        const count = await getUnreadCount();
+        setNotificationCount(count);
+      } catch (error) {
+        console.error('[Header] Error al cargar conteo de notificaciones:', error);
+      }
+    };
+
+    loadNotificationCount();
+
+    // Podríamos establecer un intervalo para actualizar periódicamente
+    const refreshInterval = setInterval(loadNotificationCount, 60000); // cada minuto
+
+    return () => {
+      clearInterval(refreshInterval);
+    };
+  }, []);
 
   const navigateSafely = (screenName: keyof RootStackParamList, params?: any) => {
     console.log(`[Header] Navegación segura a ${screenName}`);
@@ -63,11 +95,37 @@ export const Header = () => {
     }
   };
 
+  const handleNotificationsPress = () => {
+    navigateSafely('Notifications');
+  };
+
+  const goBack = () => {
+    navigation.goBack();
+  };
+
   const displayName = state.user?.firstName || userName || 'Usuario';
   const isAdmin = state.user?.role === 'Administrador';
   const isCongreso = state.user?.role === 'Congreso';
   const isSuscriptor = state.user?.role === 'Suscriptor';
 
+  // Si se proporciona un título personalizado, mostrar el header estilo sección con botón de retroceso
+  if (title) {
+    return (
+      <View style={styles.customHeaderContainer}>
+        <View style={styles.customHeader}>
+          {showBackButton && (
+            <TouchableOpacity onPress={goBack} style={styles.backButton}>
+              <Feather name="arrow-left" size={24} color={COLORS.primary} />
+            </TouchableOpacity>
+          )}
+          <Text style={styles.customHeaderTitle}>{title}</Text>
+          <View style={{ width: 24 }} /> {/* Espacio para equilibrar el diseño */}
+        </View>
+      </View>
+    );
+  }
+
+  // Header principal por defecto
   return (
     <View style={styles.headerContainer}>
       <View style={styles.header}>
@@ -79,7 +137,7 @@ export const Header = () => {
           {isSuscriptor && <Text style={styles.roleText}>(Suscriptor)</Text>}
         </View>
         <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.headerIcon} onPress={() => console.log('Notifications')}>
+          <TouchableOpacity style={styles.headerIcon} onPress={handleNotificationsPress}>
             <Feather name="bell" size={20} color={COLORS.primary} />
             <NotificationBadge count={notificationCount} />
           </TouchableOpacity>
@@ -215,4 +273,40 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginHorizontal: 4,
   },
+  // Estilos para el header personalizado
+  customHeaderContainer: {
+    backgroundColor: COLORS.white,
+    ...Platform.select({
+      android: {
+        elevation: 3,
+      },
+      ios: {
+        shadowColor: COLORS.black,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+    }),
+  },
+  customHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 50 : 16,
+    paddingBottom: 16,
+    height: Platform.OS === 'ios' ? 90 : 60,
+  },
+  customHeaderTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: FONT_SIZES.lg,
+    fontFamily: FONTS.heading,
+    color: COLORS.primary,
+  },
+  backButton: {
+    padding: 8,
+  },
 });
+
+export default Header;

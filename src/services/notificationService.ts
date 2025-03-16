@@ -4,16 +4,9 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { registerBackgroundNotificationTask, unregisterBackgroundNotificationTask } from './backgroundNotificationTask';
+import { addNotificationToHistory, getUnreadCount, markAllNotificationsAsRead as markAllAsRead, markNotificationAsRead as markAsRead } from './notificationHistoryService';
+import { NotificationHistoryItem, NotificationPreferences } from '../types/notificationTypes';
 
-export interface NotificationHistoryItem {
-  id: string;
-  title: string;
-  body: string;
-  data: any;
-  receivedAt: string;
-  read: boolean;
-  receivedInBackground?: boolean;
-}
 // Configuración avanzada para notificaciones en primer plano
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
@@ -101,13 +94,8 @@ export const processForegroundNotification = async (notification: Notifications.
     const { data } = notification.request.content;
     console.log('Procesando notificación en primer plano:', data);
     
-    // Guardar la notificación en el historial
+    // Crear objeto de historial y delegarlo al servicio especializado
     await saveNotificationToHistory(notification);
-    
-    // Puedes implementar lógica adicional aquí, como:
-    // - Actualizar un contador de notificaciones no leídas
-    // - Desencadenar una acción específica basada en el tipo de notificación
-    // - Actualizar datos en la aplicación basados en la notificación
     
     return true;
   } catch (error) {
@@ -131,22 +119,8 @@ const saveNotificationToHistory = async (notification: Notifications.Notificatio
       read: false
     };
     
-    // Obtener historial existente
-    const historyString = await AsyncStorage.getItem('notificationHistory');
-    let history: NotificationHistoryItem[] = historyString ? JSON.parse(historyString) : [];
-    
-    // Añadir nueva notificación al inicio del historial
-    history = [historyItem, ...history];
-    
-    // Limitar el historial a un número razonable (por ejemplo, 50 notificaciones)
-    if (history.length > 50) {
-      history = history.slice(0, 50);
-    }
-    
-    // Guardar historial actualizado
-    await AsyncStorage.setItem('notificationHistory', JSON.stringify(history));
-    
-    return true;
+    // Utilizar el nuevo servicio de historial de notificaciones
+    return await addNotificationToHistory(historyItem);
   } catch (error) {
     console.error('Error al guardar notificación en historial:', error);
     return false;
@@ -293,7 +267,6 @@ export const handleBackgroundNotification = async (notification: Notifications.N
   try {
     console.log('Procesando notificación recibida en segundo plano:', notification);
     
-    // Guardar la notificación en el historial (si no se ha hecho ya por la tarea en segundo plano)
     const { title, body, data } = notification.request.content;
     
     // Crear objeto de historial de notificación
@@ -307,30 +280,9 @@ export const handleBackgroundNotification = async (notification: Notifications.N
       receivedInBackground: true
     };
     
-    // Obtener historial existente
-    const historyString = await AsyncStorage.getItem('notificationHistory');
-    let history: NotificationHistoryItem[] = historyString ? JSON.parse(historyString) : [];
-    
-    // Verificar si la notificación ya está en el historial
-    const notificationExists = history.some(item => item.id === historyItem.id);
-    
-    if (!notificationExists) {
-      // Añadir nueva notificación al inicio del historial
-      history = [historyItem, ...history];
-      
-      // Limitar el historial a un número razonable (por ejemplo, 50 notificaciones)
-      if (history.length > 50) {
-        history = history.slice(0, 50);
-      }
-      
-      // Guardar historial actualizado
-      await AsyncStorage.setItem('notificationHistory', JSON.stringify(history));
-      
-      // Incrementar contador de notificaciones no leídas
-      const unreadCountStr = await AsyncStorage.getItem('unreadNotificationsCount');
-      const unreadCount = unreadCountStr ? parseInt(unreadCountStr) : 0;
-      await AsyncStorage.setItem('unreadNotificationsCount', (unreadCount + 1).toString());
-    }
+    // Usar el nuevo servicio de historial para añadir la notificación
+    // addNotificationToHistory ya maneja la verificación de duplicados
+    await addNotificationToHistory(historyItem);
     
     return true;
   } catch (error) {
@@ -340,79 +292,19 @@ export const handleBackgroundNotification = async (notification: Notifications.N
 };
 
 // Función para obtener el número de notificaciones no leídas
+// Delegada al nuevo servicio
 export const getUnreadNotificationsCount = async (): Promise<number> => {
-  try {
-    const countStr = await AsyncStorage.getItem('unreadNotificationsCount');
-    return countStr ? parseInt(countStr) : 0;
-  } catch (error) {
-    console.error('Error al obtener contador de notificaciones no leídas:', error);
-    return 0;
-  }
+  return await getUnreadCount();
 };
 
 // Función para marcar todas las notificaciones como leídas
+// Delegada al nuevo servicio
 export const markAllNotificationsAsRead = async (): Promise<boolean> => {
-  try {
-    // Establecer contador a cero
-    await AsyncStorage.setItem('unreadNotificationsCount', '0');
-    
-    // Actualizar el estado de lectura en el historial
-    const historyString = await AsyncStorage.getItem('notificationHistory');
-    
-    if (historyString) {
-      const history = JSON.parse(historyString) as NotificationHistoryItem[];
-      const updatedHistory = history.map((item: NotificationHistoryItem) => ({
-        ...item,
-        read: true
-      }));
-      
-      await AsyncStorage.setItem('notificationHistory', JSON.stringify(updatedHistory));
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Error al marcar notificaciones como leídas:', error);
-    return false;
-  }
+  return await markAllAsRead();
 };
 
 // Función para marcar una notificación específica como leída
+// Delegada al nuevo servicio
 export const markNotificationAsRead = async (notificationId: string): Promise<boolean> => {
-  try {
-    const historyString = await AsyncStorage.getItem('notificationHistory');
-    
-    if (!historyString) {
-      return false;
-    }
-    
-    const history = JSON.parse(historyString) as NotificationHistoryItem[];
-    let unreadCount = 0;
-    
-    const updatedHistory = history.map((item: NotificationHistoryItem) => {
-      // Si el ítem ya está marcado como leído, no afecta el contador
-      if (!item.read) {
-        unreadCount++;
-      }
-      
-      // Si es la notificación que queremos marcar como leída
-      if (item.id === notificationId && !item.read) {
-        unreadCount--; // Reducir contador solo si estaba no leída
-        return { ...item, read: true };
-      }
-      
-      return item;
-    });
-    
-    // Actualizar historial
-    await AsyncStorage.setItem('notificationHistory', JSON.stringify(updatedHistory));
-    
-    // Actualizar contador (asegurándonos de que no sea negativo)
-    unreadCount = Math.max(0, unreadCount);
-    await AsyncStorage.setItem('unreadNotificationsCount', unreadCount.toString());
-    
-    return true;
-  } catch (error) {
-    console.error('Error al marcar notificación como leída:', error);
-    return false;
-  }
+  return await markAsRead(notificationId);
 };

@@ -1,117 +1,182 @@
-// src/hooks/useNotifications.ts
-
-import { useEffect, useRef, useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import * as Notifications from 'expo-notifications';
-import { AppState, Platform } from 'react-native';
-import { 
-  registerForPushNotifications, 
-  getStoredPushToken,
+import { Platform, AppState, AppStateStatus } from 'react-native';
+import {
+  setupNotificationSystem,
   processForegroundNotification,
   handleBackgroundNotification,
-  setupNotificationSystem,
-  getUnreadNotificationsCount
+  requestNotificationPermissions,
+  areNotificationsEnabled
 } from '../services/notificationService';
+import { 
+  getUnreadCount,
+  markNotificationAsRead,
+  getNotificationHistory
+} from '../services/notificationHistoryService';
+import { NotificationHistoryItem } from '../types/notificationTypes';
+import { handleNotificationNavigation } from '../navigation/navigationUtils';
 
-// Definimos un tipo para la suscripción ya que hay problemas con la importación
-type NotificationSubscription = { remove: () => void };
+type SubscriptionType = { remove: () => void };
 
 export const useNotifications = () => {
-  const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
-  const [notification, setNotification] = useState<Notifications.Notification | null>(null);
-  const [unreadCount, setUnreadCount] = useState<number>(0);
-  const notificationListener = useRef<NotificationSubscription | undefined>();
-  const responseListener = useRef<NotificationSubscription | undefined>();
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [hasPermission, setHasPermission] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifications, setNotifications] = useState<NotificationHistoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const appState = useRef(AppState.currentState);
-  
+  const notificationListener = useRef<SubscriptionType | null>(null);
+  const responseListener = useRef<SubscriptionType | null>(null);
+
+  // Inicializar el sistema de notificaciones
   useEffect(() => {
-    // Configurar sistema completo de notificaciones
-    setupNotificationSystem().then(success => {
-      if (success) {
-        console.log('Sistema de notificaciones configurado correctamente');
-      }
-    });
-  
-    // Cargar el token existente o registrar uno nuevo
-    const loadPushToken = async () => {
-      let token = await getStoredPushToken();
-      
-      if (!token) {
-        token = await registerForPushNotifications();
-      }
-      
-      if (token) {
-        setExpoPushToken(token);
-        console.log('Token de notificaciones cargado:', token);
+    const initialize = async () => {
+      try {
+        setLoading(true);
+        
+        // Configurar el sistema de notificaciones
+        await setupNotificationSystem();
+        
+        // Verificar permisos
+        const enabled = await areNotificationsEnabled();
+        setHasPermission(enabled);
+        
+        // Cargar historial y contador
+        await refreshNotificationData();
+        
+        setIsInitialized(true);
+      } catch (err: any) {
+        setError(`Error al inicializar notificaciones: ${err.message}`);
+        console.error('Error al inicializar notificaciones:', err);
+      } finally {
+        setLoading(false);
       }
     };
-
-    loadPushToken();
     
-    // Cargar contador de notificaciones no leídas
-    const loadUnreadCount = async () => {
-      const count = await getUnreadNotificationsCount();
-      setUnreadCount(count);
-    };
+    initialize();
     
-    loadUnreadCount();
+    // Configurar oyentes de notificaciones
+    setupNotificationListeners();
     
-    // Monitorear cambios en el estado de la aplicación (primer plano/segundo plano)
-    const appStateSubscription = AppState.addEventListener('change', nextAppState => {
-      // Si la app vuelve a primer plano, actualizar contador de no leídas
-      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
-        loadUnreadCount();
-      }
-      
-      appState.current = nextAppState;
-    });
-
-    // Configurar oyentes para las notificaciones en primer plano
-    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-      console.log('Notificación recibida en primer plano:', notification);
-      setNotification(notification);
-      
-      // Procesar la notificación recibida en primer plano
-      processForegroundNotification(notification).then(success => {
-        if (success) {
-          console.log('Notificación procesada correctamente');
-          // Actualizar contador de no leídas
-          loadUnreadCount();
-        }
-      });
-    });
-
-    // Configurar oyentes para respuestas a notificaciones (cuando el usuario toca una notificación)
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('Respuesta de notificación recibida:', response);
-      
-      // Verificar que trigger existe antes de acceder a su tipo
-      const trigger = response.notification.request.trigger;
-      // Si la notificación fue recibida en segundo plano, procesarla
-      if (trigger && 'type' in trigger && trigger.type === 'push') {
-        handleBackgroundNotification(response.notification);
-      }
-      
-      // Actualizar contador de no leídas
-      loadUnreadCount();
-      
-      // Lo del deep linking lo implementaremos en el paso 9
-    });
-
-    // Limpiar oyentes al desmontar
+    // Monitorear cambios en el estado de la aplicación
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    
     return () => {
+      // Limpiar oyentes
       if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
+        notificationListener.current.remove();
       }
       if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
+        responseListener.current.remove();
       }
-      appStateSubscription.remove();
+      subscription.remove();
     };
   }, []);
-
+  
+  // Manejar cambios en el estado de la aplicación (foreground/background)
+  const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+    if (
+      appState.current.match(/inactive|background/) &&
+      nextAppState === 'active'
+    ) {
+      // La app ha vuelto al primer plano, actualizar datos
+      await refreshNotificationData();
+    }
+    
+    appState.current = nextAppState;
+  };
+  
+  // Configurar los oyentes de notificaciones
+  const setupNotificationListeners = () => {
+    // Oyente para notificaciones recibidas en primer plano
+    notificationListener.current = Notifications.addNotificationReceivedListener(async notification => {
+      console.log('Notificación recibida en primer plano:', notification);
+      
+      // Procesar notificación
+      await processForegroundNotification(notification);
+      
+      // Actualizar datos
+      await refreshNotificationData();
+    });
+    
+    // Oyente para respuestas a notificaciones (cuando el usuario toca una notificación)
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(async response => {
+      console.log('Respuesta a notificación recibida:', response);
+      
+      const notificationId = response.notification.request.identifier;
+      
+      // Marcar como leída
+      await markNotificationAsRead(notificationId);
+      
+      // Procesar la notificación en caso de que haya sido recibida en segundo plano
+      await handleBackgroundNotification(response.notification);
+      
+      // Actualizar datos
+      await refreshNotificationData();
+      
+      // Implementar navegación basada en los datos de la notificación (deep linking)
+      const notificationData = response.notification.request.content.data;
+      
+      // Usar un pequeño timeout para asegurar que los datos están actualizados
+      // antes de la navegación
+      setTimeout(() => {
+        handleNotificationNavigation(notificationData);
+      }, 300);
+    });
+  };
+  
+  // Actualizar datos de notificaciones (historial y contador)
+  const refreshNotificationData = async () => {
+    try {
+      // Obtener contador de no leídas
+      const count = await getUnreadCount();
+      setUnreadCount(count);
+      
+      // Obtener historial completo
+      const history = await getNotificationHistory();
+      setNotifications(history);
+      
+      return { count, history };
+    } catch (err: any) {
+      setError(`Error al actualizar datos de notificaciones: ${err.message}`);
+      console.error('Error al actualizar datos de notificaciones:', err);
+      
+      return { count: 0, history: [] };
+    }
+  };
+  
+  // Solicitar permisos de notificaciones
+  const requestPermissions = async () => {
+    try {
+      const granted = await requestNotificationPermissions();
+      setHasPermission(granted);
+      return granted;
+    } catch (err: any) {
+      setError(`Error al solicitar permisos: ${err.message}`);
+      console.error('Error al solicitar permisos:', err);
+      return false;
+    }
+  };
+  
+  // Verificar si tenemos permisos
+  const checkPermissions = async () => {
+    const enabled = await areNotificationsEnabled();
+    setHasPermission(enabled);
+    return enabled;
+  };
+  
   return {
-    expoPushToken,
-    notification,
-    unreadCount
+    isInitialized,
+    hasPermission,
+    unreadCount,
+    notifications,
+    loading,
+    error,
+    refreshNotificationData,
+    requestPermissions,
+    checkPermissions,
   };
 };
+
+export default useNotifications;

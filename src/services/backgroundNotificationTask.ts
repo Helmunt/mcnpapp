@@ -1,7 +1,8 @@
 import * as BackgroundFetch from 'expo-background-fetch';
 import * as TaskManager from 'expo-task-manager';
 import * as Notifications from 'expo-notifications';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { addNotificationToHistory } from './notificationHistoryService';
+import { NotificationHistoryItem } from '../types/notificationTypes';
 
 // Nombre de la tarea en segundo plano
 export const BACKGROUND_NOTIFICATION_TASK = 'background-notification-task';
@@ -37,7 +38,7 @@ const saveBackgroundNotificationToHistory = async (notification: Notifications.N
     const { title, body, data } = notification.request.content;
     
     // Crear objeto de historial de notificación
-    const historyItem = {
+    const historyItem: NotificationHistoryItem = {
       id: notification.request.identifier,
       title: title || 'Sin título',
       body: body || 'Sin contenido',
@@ -47,27 +48,8 @@ const saveBackgroundNotificationToHistory = async (notification: Notifications.N
       receivedInBackground: true
     };
     
-    // Obtener historial existente
-    const historyString = await AsyncStorage.getItem('notificationHistory');
-    let history = historyString ? JSON.parse(historyString) : [];
-    
-    // Añadir nueva notificación al inicio del historial
-    history = [historyItem, ...history];
-    
-    // Limitar el historial a un número razonable (por ejemplo, 50 notificaciones)
-    if (history.length > 50) {
-      history = history.slice(0, 50);
-    }
-    
-    // Guardar historial actualizado
-    await AsyncStorage.setItem('notificationHistory', JSON.stringify(history));
-    
-    // Incrementar contador de notificaciones no leídas
-    const unreadCountStr = await AsyncStorage.getItem('unreadNotificationsCount');
-    const unreadCount = unreadCountStr ? parseInt(unreadCountStr) : 0;
-    await AsyncStorage.setItem('unreadNotificationsCount', (unreadCount + 1).toString());
-    
-    return true;
+    // Usar el nuevo servicio de historial para añadir la notificación
+    return await addNotificationToHistory(historyItem);
   } catch (error) {
     console.error('Error al guardar notificación en historial:', error);
     return false;

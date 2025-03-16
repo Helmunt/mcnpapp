@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, Platform, Text } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
-import type { IconProps } from '@expo/vector-icons/build/createIconSet';
 import { COLORS, FONTS, FONT_SIZES } from '../../constants/theme';
 import { MainNavigationProp } from '../../types/navigation';
 import { useAuth } from '../../context/AuthContext';
