@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "506630627816",
+    "project_id": "mcnp-app",
+    "storage_bucket": "mcnp-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:506630627816:android:71cde615df3c18b16c845d",
+        "android_client_info": {
+          "package_name": "com.mcnp.mcnpapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCjWoQWcUQQ18vucAK3GSuE7lgyhkda5UU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
