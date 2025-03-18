@@ -8,6 +8,9 @@ import {
   ALLOWED_ROLES 
 } from '../types/user';
 import { BuddyPressService } from '../services/buddypress';
+import { checkForPendingForceLogout, clearForceLogoutRequest } from '../services/notificationService';
+import { AppState, AppStateStatus } from 'react-native';
+import { markSessionAsValid, isSessionValid, clearSessionValidity } from '../services/sessionValidityService';
 
 type AuthAction =
   | { type: 'RESTORE_AUTH'; payload: { user: User } }
@@ -81,6 +84,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return WP_ROLE_MAPPING[wpRole] || null;
   };
 
+  // Verificar si hay solicitudes de cierre de sesión forzado pendientes
+  const checkForForceLogout = async () => {
+    try {
+      // Verificar el método tradicional (flag en AsyncStorage)
+      const forceLogoutPending = await checkForPendingForceLogout();
+      
+      // Verificar también el nuevo sistema de validez de sesión
+      const sessionIsValid = await isSessionValid();
+      
+      if ((forceLogoutPending || !sessionIsValid) && state.isAuthenticated) {
+        console.log('[AuthContext] Se detectó solicitud de cierre de sesión forzado o sesión inválida');
+        
+        // Almacenar mensaje de cierre de sesión forzado para mostrar en login
+        await AsyncStorage.setItem('force_logout_message', 'Tu sesión se ha cerrado porque iniciaste sesión en otro dispositivo.');
+        
+        // Limpiar la solicitud de cierre forzado
+        await clearForceLogoutRequest();
+        
+        // Ejecutar logout
+        await logout();
+      }
+    } catch (error) {
+      console.error('[AuthContext] Error al verificar cierre de sesión forzado:', error);
+    }
+  };
+
   useEffect(() => {
     const loadStoredAuth = async () => {
       try {
@@ -88,9 +117,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (storedAuth) {
           const authData = JSON.parse(storedAuth);
           if (authData.user) {
-            dispatch({ type: 'RESTORE_AUTH', payload: authData });
+            // Verificar si la sesión es válida antes de restaurar auth
+            const sessionIsValid = await isSessionValid();
+            
+            if (sessionIsValid) {
+              dispatch({ type: 'RESTORE_AUTH', payload: authData });
+            } else {
+              console.log('[AuthContext] Sesión almacenada inválida, redirigiendo a login');
+              await AsyncStorage.setItem('force_logout_message', 'Tu sesión ha expirado o se ha iniciado en otro dispositivo.');
+              await AsyncStorage.removeItem('auth');
+            }
           }
         }
+        
+        // Verificar si hay solicitudes de cierre de sesión forzado pendientes
+        await checkForForceLogout();
       } catch (error) {
         console.error('Error loading stored auth:', error);
         await AsyncStorage.removeItem('auth');
@@ -98,7 +139,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     loadStoredAuth();
-  }, []);
+    
+    // Configurar listener para cambios de estado de la aplicación
+    const subscription = AppState.addEventListener('change', async (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        // Cuando la app vuelve a primer plano, verificar si hay solicitudes de cierre de sesión
+        await checkForForceLogout();
+      }
+    });
+    
+    // Verificar periódicamente la validez de la sesión
+    const interval = setInterval(async () => {
+      if (state.isAuthenticated) {
+        await checkForForceLogout();
+      }
+    }, 30000); // Verificar cada 30 segundos
+    
+    // Limpiar listener y temporizador al desmontar
+    return () => {
+      subscription.remove();
+      clearInterval(interval);
+    };
+  }, [state.isAuthenticated]);
 
   const login = async (username: string, password: string) => {
     try {
@@ -177,8 +239,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         token: authData.token
       };
 
+      // Marcar la sesión como válida
+      await markSessionAsValid();
+      
       await AsyncStorage.setItem('auth', JSON.stringify({ user }));
       dispatch({ type: 'LOGIN_SUCCESS', payload: user });
+
+      // Limpiar cualquier mensaje de cierre de sesión forzado
+      await AsyncStorage.removeItem('force_logout_message');
 
     } catch (error) {
       if (error instanceof Error && 
@@ -197,6 +265,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       console.log('[AuthContext] Iniciando proceso de cierre de sesión');
+      
+      // Limpiar datos de validez de sesión
+      await clearSessionValidity();
       
       // Limpiar token de BuddyPress para evitar problemas de persistencia entre usuarios
       await BuddyPressService.clearToken();
@@ -228,6 +299,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           AsyncStorage.removeItem('buddypress_token'),
           AsyncStorage.removeItem('bp_auth_token')
         ]);
+        
+        // Intentar limpiar la validez de sesión incluso en caso de error
+        await clearSessionValidity();
         
         dispatch({ type: 'LOGOUT' });
       } catch (innerError) {

@@ -29,6 +29,7 @@ import NotificationItem from './components/NotificationItem';
 import EmptyNotifications from './components/EmptyNotifications';
 import Header from '../../components/shared/Header';
 import { RootStackParamList } from '../../types/navigation';
+import { subscribeToNotificationUpdates } from '../../components/shared/Header';
 
 // Definimos el tipo de navegación
 type RootStackNavProp = NativeStackNavigationProp<RootStackParamList>;
@@ -71,9 +72,16 @@ const NotificationsScreen = () => {
     };
   }, []);
 
-  // Cargar notificaciones
+  // Cargar notificaciones inicialmente y suscribirse a actualizaciones
   useEffect(() => {
     loadNotifications();
+    
+    // Suscribirse a cambios en las notificaciones (por ejemplo, cuando llega una nueva)
+    const unsubscribe = subscribeToNotificationUpdates(loadNotifications);
+    
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const loadNotifications = async () => {
@@ -116,6 +124,9 @@ const NotificationsScreen = () => {
         );
       });
       setGroupedNotifications(newGrouped);
+      
+      // Nota: Ya no necesitamos llamar a notifyNotificationUpdate() aquí
+      // porque lo hace internamente markNotificationAsRead
     } catch (error) {
       console.error('Error al marcar notificación como leída:', error);
     }
@@ -150,6 +161,9 @@ const NotificationsScreen = () => {
                 }
               });
               setGroupedNotifications(newGrouped);
+              
+              // Nota: Ya no necesitamos llamar a notifyNotificationUpdate() aquí
+              // porque lo hace internamente deleteNotification
             } catch (error) {
               console.error('Error al eliminar notificación:', error);
             }
@@ -174,6 +188,9 @@ const NotificationsScreen = () => {
         newGrouped[date] = newGrouped[date].map(item => ({ ...item, read: true }));
       });
       setGroupedNotifications(newGrouped);
+      
+      // Nota: Ya no necesitamos llamar a notifyNotificationUpdate() aquí
+      // porque lo hace internamente markAllNotificationsAsRead
     } catch (error) {
       console.error('Error al marcar todas como leídas:', error);
     }
@@ -239,6 +256,9 @@ const NotificationsScreen = () => {
               
               setSelectedItems([]);
               setIsEditing(false);
+              
+              // Nota: Ya no necesitamos llamar a notifyNotificationUpdate() aquí
+              // porque lo hace internamente deleteNotification para cada elemento
             } catch (error) {
               console.error('Error al eliminar notificaciones seleccionadas:', error);
             }

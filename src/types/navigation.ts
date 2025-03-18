@@ -13,14 +13,16 @@ export type RootStackParamList = {
   Profile: undefined;
   // Añadir la pantalla de notificaciones al stack principal
   Notifications: undefined;
+  // Movemos ForgotPassword a este nivel
+  ForgotPassword: undefined;
 };
 
 // Stack dentro de Main
 export type MainStackParamList = {
   MainTabs: NavigatorScreenParams<MainTabParamList>;
   Profile: NavigatorScreenParams<ProfileStackParamList>;
-  // También podríamos añadirla aquí si queremos que sea accesible desde Main
   Notifications: undefined;
+  ForgotPassword: undefined;
 };
 
 // Stack del Congreso

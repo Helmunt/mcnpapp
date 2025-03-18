@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform, Image } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Platform, Image, StatusBar } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -9,6 +9,8 @@ import { useAuth } from '../../context/AuthContext';
 import { RootStackParamList } from '../../types/navigation';
 import { BuddyPressService } from '../../services/buddypress';
 import { getUnreadCount } from '../../services/notificationHistoryService';
+import { AppState, AppStateStatus } from 'react-native';
+import { isSessionValid } from '../../services/sessionValidityService';
 
 // Definimos el tipo de navegación
 type RootStackNavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -22,10 +24,27 @@ interface HeaderProps {
 // Variable global para almacenar referencia al WebView de BuddyPress activo
 let activeBuddyPressWebViewRef: any = null;
 
+// Variable global para el evento de cambio en notificaciones
+let notificationUpdateListeners: (() => void)[] = [];
+
 // Función para establecer la referencia activa desde cualquier componente
 export const setActiveBuddyPressWebViewRef = (ref: any) => {
   activeBuddyPressWebViewRef = ref;
   console.log('[Header] WebView de BuddyPress registrado para navegación segura');
+};
+
+// Función para notificar cambios en notificaciones
+export const notifyNotificationUpdate = () => {
+  console.log('[Header] Notificando actualización de notificaciones a', notificationUpdateListeners.length, 'oyentes');
+  notificationUpdateListeners.forEach(listener => listener());
+};
+
+// Función para suscribirse a cambios de notificaciones
+export const subscribeToNotificationUpdates = (listener: () => void) => {
+  notificationUpdateListeners.push(listener);
+  return () => {
+    notificationUpdateListeners = notificationUpdateListeners.filter(l => l !== listener);
+  };
 };
 
 const NotificationBadge = ({ count }: { count: number }) => {
@@ -47,26 +66,84 @@ const Header: React.FC<HeaderProps> = ({ title, showBackButton = false }) => {
   const { state, logout } = useAuth();
   const [notificationCount, setNotificationCount] = useState(0);
 
-  // Cargar el contador de notificaciones no leídas
+  // Función para cargar el contador de notificaciones
+  const loadNotificationCount = useCallback(async () => {
+    try {
+      const count = await getUnreadCount();
+      setNotificationCount(count);
+    } catch (error) {
+      console.error('[Header] Error al cargar conteo de notificaciones:', error);
+    }
+  }, []);
+
+  // Verificar validez de sesión periódicamente
   useEffect(() => {
-    const loadNotificationCount = async () => {
-      try {
-        const count = await getUnreadCount();
-        setNotificationCount(count);
-      } catch (error) {
-        console.error('[Header] Error al cargar conteo de notificaciones:', error);
+    // Solo verificar si el usuario está autenticado
+    if (!state.isAuthenticated) return;
+    
+    // Verificar validez de sesión al montar el componente
+    const initialCheck = async () => {
+      const valid = await isSessionValid();
+      if (!valid) {
+        console.log('[Header] Detectada sesión inválida, cerrando sesión...');
+        await logout();
       }
     };
+    
+    initialCheck();
+    
+    // Verificar periódicamente (cada 30 segundos)
+    const interval = setInterval(async () => {
+      if (state.isAuthenticated) {
+        const valid = await isSessionValid();
+        if (!valid) {
+          console.log('[Header] Verificación periódica: Sesión inválida, cerrando sesión...');
+          await logout();
+        }
+      }
+    }, 30000);
+    
+    // También verificar cuando la app vuelve a primer plano
+    const subscription = AppState.addEventListener('change', async (nextAppState) => {
+      if (nextAppState === 'active' && state.isAuthenticated) {
+        const valid = await isSessionValid();
+        if (!valid) {
+          console.log('[Header] App activada: Sesión inválida, cerrando sesión...');
+          await logout();
+        }
+      }
+    });
+    
+    return () => {
+      clearInterval(interval);
+      subscription.remove();
+    };
+  }, [state.isAuthenticated, logout]);
 
+  // Cargar el contador de notificaciones no leídas
+  useEffect(() => {
+    // Cargar contador inicialmente
     loadNotificationCount();
 
-    // Podríamos establecer un intervalo para actualizar periódicamente
-    const refreshInterval = setInterval(loadNotificationCount, 60000); // cada minuto
+    // Suscribirse a cambios en AppState
+    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        loadNotificationCount();
+      }
+    });
+
+    // Suscribirse a cambios en notificaciones
+    const unsubscribe = subscribeToNotificationUpdates(loadNotificationCount);
+
+    // Establecer un intervalo para actualizar periódicamente (respaldo)
+    const interval = setInterval(loadNotificationCount, 15000); // cada 15 segundos
 
     return () => {
-      clearInterval(refreshInterval);
+      subscription.remove();
+      unsubscribe();
+      clearInterval(interval);
     };
-  }, []);
+  }, [loadNotificationCount]);
 
   const navigateSafely = (screenName: keyof RootStackParamList, params?: any) => {
     console.log(`[Header] Navegación segura a ${screenName}`);
@@ -170,7 +247,6 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 50 : 40,
     paddingBottom: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -178,8 +254,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     borderBottomColor: COLORS.lightGray,
     borderBottomWidth: 1,
-    marginTop: Platform.OS === 'ios' ? 0 : 20,
-    height: Platform.OS === 'android' ? 85 : 'auto',
+    marginTop: Platform.OS === 'ios' ? 0 : 0,
+    paddingTop: Platform.OS === 'ios' ? 50 : (StatusBar.currentHeight || 0) + 10,
+    height: Platform.OS === 'android' ? 'auto' : 'auto',
   },
   logo: {
     height: 40,

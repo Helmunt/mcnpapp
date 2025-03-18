@@ -9,15 +9,19 @@ import {
   ScrollView,
   Image,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  Alert
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Formik, FormikProps } from 'formik';
 import * as Yup from 'yup';
 import Feather from '@expo/vector-icons/Feather';
 import { COLORS, FONTS, FONT_SIZES } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import { useUser } from '../../context/UserContext';
+import { RootStackParamList } from '../../types/navigation';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface LoginFormValues {
   email: string;
@@ -35,11 +39,30 @@ const LoginSchema = Yup.object().shape({
 });
 
 export const LoginScreen = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { state, login } = useAuth();
   const { setUserName } = useUser();
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [forceLogoutMessage, setForceLogoutMessage] = useState<string | null>(null);
+
+  // Verificar si hay un mensaje de cierre de sesión forzado
+  useEffect(() => {
+    const checkForForceLogoutMessage = async () => {
+      try {
+        const message = await AsyncStorage.getItem('force_logout_message');
+        if (message) {
+          setForceLogoutMessage(message);
+          // Limpiar el mensaje después de mostrarlo
+          await AsyncStorage.removeItem('force_logout_message');
+        }
+      } catch (error) {
+        console.error('Error al verificar mensaje de cierre de sesión:', error);
+      }
+    };
+    
+    checkForForceLogoutMessage();
+  }, []);
 
   useEffect(() => {
     if (state.isAuthenticated && state.user) {
@@ -51,10 +74,15 @@ export const LoginScreen = () => {
   const handleSubmit = async (values: LoginFormValues) => {
     try {
       setLoginError(null);
+      setForceLogoutMessage(null); // Limpiar mensaje de cierre forzado al intentar login
       await login(values.email, values.password);
     } catch (error) {
       setLoginError(error instanceof Error ? error.message : 'Error de autenticación');
     }
+  };
+
+  const handleForgotPassword = () => {
+    navigation.navigate('ForgotPassword');
   };
 
   return (
@@ -84,6 +112,13 @@ export const LoginScreen = () => {
         }: FormikProps<LoginFormValues>) => (
           <View style={styles.formContainer}>
             <Image source={require('../../assets/images/Logo.png')} style={styles.logo} />      
+
+            {/* Mensaje de cierre de sesión forzado */}
+            {forceLogoutMessage && (
+              <View style={styles.forceLogoutContainer}>
+                <Text style={styles.forceLogoutMessage}>{forceLogoutMessage}</Text>
+              </View>
+            )}
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Email</Text>
@@ -149,7 +184,7 @@ export const LoginScreen = () => {
                 <Text style={styles.checkboxLabel}>Recuérdame</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={() => console.log('Forgot password')}>
+              <TouchableOpacity onPress={handleForgotPassword}>
                 <Text style={styles.forgotPassword}>¿Olvidaste tu contraseña?</Text>
               </TouchableOpacity>
             </View>
@@ -309,5 +344,19 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 0, 0, 0.08)',
     borderRadius: 8,
     transform: [{ translateY: -10 }],
+  },
+  forceLogoutContainer: {
+    padding: 15,
+    backgroundColor: 'rgba(255, 153, 0, 0.15)',
+    borderRadius: 8,
+    marginBottom: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: 'orange',
+  },
+  forceLogoutMessage: {
+    fontFamily: FONTS.body,
+    fontSize: FONT_SIZES.md,
+    color: COLORS.text,
+    textAlign: 'center',
   },
 });

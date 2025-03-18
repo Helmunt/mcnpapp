@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import * as Notifications from 'expo-notifications';
 import { Platform, AppState, AppStateStatus } from 'react-native';
 import {
@@ -15,6 +15,7 @@ import {
 } from '../services/notificationHistoryService';
 import { NotificationHistoryItem } from '../types/notificationTypes';
 import { handleNotificationNavigation } from '../navigation/navigationUtils';
+import { subscribeToNotificationUpdates, notifyNotificationUpdate } from '../components/shared/Header';
 
 type SubscriptionType = { remove: () => void };
 
@@ -29,6 +30,26 @@ export const useNotifications = () => {
   const notificationListener = useRef<SubscriptionType | null>(null);
   const responseListener = useRef<SubscriptionType | null>(null);
 
+  // Obtener datos de notificaciones de forma optimizada
+  const refreshNotificationData = useCallback(async () => {
+    try {
+      // Obtener contador de no leídas
+      const count = await getUnreadCount();
+      setUnreadCount(count);
+      
+      // Obtener historial completo
+      const history = await getNotificationHistory();
+      setNotifications(history);
+      
+      return { count, history };
+    } catch (err: any) {
+      setError(`Error al actualizar datos de notificaciones: ${err.message}`);
+      console.error('Error al actualizar datos de notificaciones:', err);
+      
+      return { count: 0, history: [] };
+    }
+  }, []);
+  
   // Inicializar el sistema de notificaciones
   useEffect(() => {
     const initialize = async () => {
@@ -62,6 +83,9 @@ export const useNotifications = () => {
     // Monitorear cambios en el estado de la aplicación
     const subscription = AppState.addEventListener('change', handleAppStateChange);
     
+    // Suscribirse a actualizaciones de notificaciones
+    const notificationUpdateUnsubscribe = subscribeToNotificationUpdates(refreshNotificationData);
+    
     return () => {
       // Limpiar oyentes
       if (notificationListener.current) {
@@ -71,8 +95,9 @@ export const useNotifications = () => {
         responseListener.current.remove();
       }
       subscription.remove();
+      notificationUpdateUnsubscribe();
     };
-  }, []);
+  }, [refreshNotificationData]);
   
   // Manejar cambios en el estado de la aplicación (foreground/background)
   const handleAppStateChange = async (nextAppState: AppStateStatus) => {
@@ -96,8 +121,9 @@ export const useNotifications = () => {
       // Procesar notificación
       await processForegroundNotification(notification);
       
-      // Actualizar datos
-      await refreshNotificationData();
+      // Actualizar datos - esto se hace vía notificación ahora,
+      // así que no necesitamos llamar directamente a refreshNotificationData
+      // Los datos se actualizarán gracias a la suscripción que configuramos
     });
     
     // Oyente para respuestas a notificaciones (cuando el usuario toca una notificación)
@@ -112,38 +138,15 @@ export const useNotifications = () => {
       // Procesar la notificación en caso de que haya sido recibida en segundo plano
       await handleBackgroundNotification(response.notification);
       
-      // Actualizar datos
-      await refreshNotificationData();
-      
-      // Implementar navegación basada en los datos de la notificación (deep linking)
-      const notificationData = response.notification.request.content.data;
+      // Actualizar datos - esto se hace vía notificación ahora
+      // Los datos se actualizarán gracias a la suscripción que configuramos
       
       // Usar un pequeño timeout para asegurar que los datos están actualizados
       // antes de la navegación
       setTimeout(() => {
-        handleNotificationNavigation(notificationData);
+        handleNotificationNavigation(response.notification.request.content.data);
       }, 300);
     });
-  };
-  
-  // Actualizar datos de notificaciones (historial y contador)
-  const refreshNotificationData = async () => {
-    try {
-      // Obtener contador de no leídas
-      const count = await getUnreadCount();
-      setUnreadCount(count);
-      
-      // Obtener historial completo
-      const history = await getNotificationHistory();
-      setNotifications(history);
-      
-      return { count, history };
-    } catch (err: any) {
-      setError(`Error al actualizar datos de notificaciones: ${err.message}`);
-      console.error('Error al actualizar datos de notificaciones:', err);
-      
-      return { count: 0, history: [] };
-    }
   };
   
   // Solicitar permisos de notificaciones

@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { NotificationHistoryItem } from '../types/notificationTypes';
+// Importamos la función de notificación del Header
+import { notifyNotificationUpdate } from '../components/shared/Header';
 
 // Constantes para las claves de AsyncStorage
 const NOTIFICATION_HISTORY_KEY = 'notificationHistory';
@@ -54,6 +56,9 @@ export const addNotificationToHistory = async (notification: NotificationHistory
       await incrementUnreadCount();
     }
     
+    // Notificar a los componentes sobre el cambio
+    notifyNotificationUpdate();
+    
     return true;
   } catch (error) {
     console.error('Error al añadir notificación al historial:', error);
@@ -99,6 +104,9 @@ export const markNotificationAsRead = async (notificationId: string): Promise<bo
     if (wasUnread) {
       await AsyncStorage.setItem(NOTIFICATION_HISTORY_KEY, JSON.stringify(updatedHistory));
       await decrementUnreadCount();
+      
+      // Notificar a los componentes sobre el cambio
+      notifyNotificationUpdate();
     }
     
     return true;
@@ -123,6 +131,9 @@ export const markAllNotificationsAsRead = async (): Promise<boolean> => {
     
     await AsyncStorage.setItem(NOTIFICATION_HISTORY_KEY, JSON.stringify(updatedHistory));
     await resetUnreadCount();
+    
+    // Notificar a los componentes sobre el cambio
+    notifyNotificationUpdate();
     
     return true;
   } catch (error) {
@@ -151,6 +162,9 @@ export const deleteNotification = async (notificationId: string): Promise<boolea
     // Si la notificación no estaba leída, decrementar contador
     if (!notificationToDelete.read) {
       await decrementUnreadCount();
+      
+      // Notificar a los componentes sobre el cambio
+      notifyNotificationUpdate();
     }
     
     return true;
@@ -185,6 +199,9 @@ export const deleteMultipleNotifications = async (notificationIds: string[]): Pr
     // Ajustar contador de no leídas si es necesario
     if (unreadDeleted > 0) {
       await decrementUnreadCountBy(unreadDeleted);
+      
+      // Notificar a los componentes sobre el cambio
+      notifyNotificationUpdate();
     }
     
     return true;
@@ -202,6 +219,10 @@ export const clearNotificationHistory = async (): Promise<boolean> => {
   try {
     await AsyncStorage.setItem(NOTIFICATION_HISTORY_KEY, JSON.stringify([]));
     await resetUnreadCount();
+    
+    // Notificar a los componentes sobre el cambio
+    notifyNotificationUpdate();
+    
     return true;
   } catch (error) {
     console.error('Error al limpiar historial de notificaciones:', error);
@@ -417,6 +438,9 @@ export const importNotificationHistory = async (jsonData: string): Promise<boole
     const unreadCount = validNotifications.filter((item: any) => !item.read).length;
     await AsyncStorage.setItem(UNREAD_COUNT_KEY, unreadCount.toString());
     
+    // Notificar a los componentes sobre el cambio
+    notifyNotificationUpdate();
+    
     return true;
   } catch (error) {
     console.error('Error al importar historial de notificaciones:', error);
@@ -497,6 +521,10 @@ export const syncUnreadCount = async (): Promise<number> => {
     const history = await getNotificationHistory();
     const unreadCount = history.filter(item => !item.read).length;
     await AsyncStorage.setItem(UNREAD_COUNT_KEY, unreadCount.toString());
+    
+    // Notificar a los componentes sobre el cambio
+    notifyNotificationUpdate();
+    
     return unreadCount;
   } catch (error) {
     console.error('Error al sincronizar contador de no leídas:', error);

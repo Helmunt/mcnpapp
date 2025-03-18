@@ -1,7 +1,7 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ActivityIndicator, View, BackHandler } from 'react-native';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { LoginScreen } from './src/screens/Auth/Login';
 import { MainNavigator } from './src/navigation/MainNavigator';
 import { useFonts } from './src/hooks/useFonts';
@@ -11,9 +11,10 @@ import { UserProvider } from './src/context/UserContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import useNotifications from './src/hooks/useNotifications';
 import { getStoredPushToken } from './src/services/notificationService';
-import { updatePushTokenIfNeeded } from './src/services/pushTokenService';
+import { updatePushTokenIfNeeded, markTokenAsUnregistered } from './src/services/pushTokenService';
 import { navigationRef, handleNotificationNavigation } from './src/navigation/navigationUtils';
 import * as Notifications from 'expo-notifications';
+import ForgotPassword from './src/screens/Auth/ForgotPassword';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -23,25 +24,52 @@ function NavigationStack() {
   const { isInitialized, refreshNotificationData } = useNotifications();
   // Referencia para mantener la última notificación recibida
   const lastNotificationResponse = useRef<Notifications.NotificationResponse | null>(null);
+  // Estado para rastrear el último usuario que registró el token
+  const [lastRegisteredUserId, setLastRegisteredUserId] = useState<number | null>(null);
 
   useEffect(() => {
-    // Enviar el token al servidor cuando el usuario esté autenticado
-    const sendTokenToServer = async () => {
-      if (state.isAuthenticated && state.user?.token) {
-        // Obtener el token almacenado
-        const pushToken = await getStoredPushToken();
-        
-        if (pushToken) {
-          console.log('Enviando token de notificaciones al servidor:', pushToken);
-          await updatePushTokenIfNeeded(pushToken, state.user.token);
+    // Función para manejar cambios de usuario y token
+    const handleUserAndTokenChange = async () => {
+      if (state.isAuthenticated && state.user?.token && state.user?.id) {
+        try {
+          // Verificar si el usuario ha cambiado desde el último registro de token
+          if (lastRegisteredUserId !== null && lastRegisteredUserId !== state.user.id) {
+            console.log('Usuario cambiado, forzando actualización de token:', 
+              `${lastRegisteredUserId} -> ${state.user.id}`);
+            await markTokenAsUnregistered();
+          }
+          
+          // Obtener el token almacenado
+          const pushToken = await getStoredPushToken();
+          
+          if (pushToken) {
+            console.log('Enviando token de notificaciones al servidor para usuario:', state.user.id);
+            // Forzar la actualización al menos una vez por sesión
+            const forceUpdate = true; // Forzar actualización para asegurar sincronización con el servidor
+            const success = await updatePushTokenIfNeeded(pushToken, state.user.token, state.user.id, forceUpdate);
+            
+            if (success) {
+              setLastRegisteredUserId(state.user.id);
+            }
+          }
+        } catch (error) {
+          console.error('Error al actualizar token para nuevo usuario:', error);
         }
       }
     };
 
+    // Solo proceder si el sistema de notificaciones está inicializado
     if (isInitialized) {
-      sendTokenToServer();
+      handleUserAndTokenChange();
     }
-  }, [isInitialized, state.isAuthenticated, state.user]);
+  }, [isInitialized, state.isAuthenticated, state.user?.id, state.user?.token, lastRegisteredUserId]);
+
+  // Manejar cierre de sesión - limpiar el estado del último usuario
+  useEffect(() => {
+    if (!state.isAuthenticated) {
+      setLastRegisteredUserId(null);
+    }
+  }, [state.isAuthenticated]);
 
   // Refrescar los datos de notificaciones cuando el usuario inicie sesión
   useEffect(() => {
@@ -106,18 +134,27 @@ function NavigationStack() {
     <Stack.Navigator
       initialRouteName={initialRoute}
       screenOptions={{
-        headerShown: false, // ✅ Ocultamos el header en la navegación principal
+        headerShown: false,
       }}
     >
       {!state.isAuthenticated ? (
-        <Stack.Screen 
-          name="Login" 
-          component={LoginScreen} 
-          options={{
-            gestureEnabled: false,
-            animation: 'fade'
-          }}
-        />
+        <>
+          <Stack.Screen 
+            name="Login" 
+            component={LoginScreen} 
+            options={{
+              gestureEnabled: false,
+              animation: 'fade'
+            }}
+          />
+          <Stack.Screen 
+            name="ForgotPassword" 
+            component={ForgotPassword} 
+            options={{
+              animation: 'slide_from_right'
+            }}
+          />
+        </>
       ) : (
         <Stack.Screen 
           name="Main" 

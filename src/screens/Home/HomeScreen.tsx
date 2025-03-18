@@ -12,6 +12,7 @@ const iconMap = {
   Users: 'users',
   BookOpen: 'book-open',
   Newspaper: 'file-text',
+  Bell: 'bell',  // Añadido icono para notificaciones
 } as const;
 
 type IconNameType = keyof typeof iconMap;
@@ -67,9 +68,8 @@ export const HomeScreen = ({ navigation }: { navigation: MainNavigationProp }) =
         />
         <MenuItem
           iconName="Users"
-          title="Ponentes"
-          onPress={() => navigation.navigate('Congress', { screen: 'CongressSpeakers' })}
-          section={AppSection.CONGRESS}
+          title="Red Social"
+          onPress={() => navigation.navigate('Social', { screen: 'SocialMain' })}
         />
         <MenuItem
           iconName="Newspaper"
@@ -77,10 +77,9 @@ export const HomeScreen = ({ navigation }: { navigation: MainNavigationProp }) =
           onPress={() => navigation.navigate('Newsletter', { screen: 'NewsletterMain' })}
         />
         <MenuItem
-          iconName="BookOpen"
-          title="Mapa del Sitio"
-          onPress={() => navigation.navigate('Congress', { screen: 'CongressMap' })}
-          section={AppSection.CONGRESS}
+          iconName="Bell"
+          title="Notificaciones"
+          onPress={() => navigation.navigate('Notifications')}
         />
       </View>
     </View>

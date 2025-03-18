@@ -6,11 +6,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { registerBackgroundNotificationTask, unregisterBackgroundNotificationTask } from './backgroundNotificationTask';
 import { addNotificationToHistory, getUnreadCount, markAllNotificationsAsRead as markAllAsRead, markNotificationAsRead as markAsRead } from './notificationHistoryService';
 import { NotificationHistoryItem, NotificationPreferences } from '../types/notificationTypes';
+import { notifyNotificationUpdate } from '../components/shared/Header';
+import { markSessionAsInvalid } from './sessionValidityService';
 
 // Configuración avanzada para notificaciones en primer plano
+// Modificado para mostrar siempre banners y reproducir sonidos en Android cuando la app está en primer plano
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
     const notificationData = notification.request.content.data;
+    
+    // Verificar si es una notificación de cierre de sesión forzado
+    if (notificationData.type === 'force_logout') {
+      // Procesar el cierre de sesión forzado
+      await handleForceLogoutNotification(notification);
+    }
     
     // Podemos personalizar el comportamiento basado en el tipo de notificación
     const notificationType = notificationData.type || 'default';
@@ -28,6 +37,12 @@ Notifications.setNotificationHandler({
         shouldPlaySound = false;
         shouldSetBadge = false;
         break;
+      case 'force_logout':
+        // Para notificaciones de cierre de sesión, siempre mostramos alerta
+        shouldShowAlert = true;
+        shouldPlaySound = true;
+        shouldSetBadge = true;
+        break;
       case 'important':
         // Notificaciones importantes siempre muestran alerta y sonido
         shouldShowAlert = true;
@@ -44,14 +59,79 @@ Notifications.setNotificationHandler({
         break;
     }
     
+    // Para Android, asegurarnos de siempre mostrar la notificación cuando la app está en primer plano
+    if (Platform.OS === 'android') {
+      shouldShowAlert = true;
+      shouldPlaySound = true; // Forzar reproducción de sonido en Android
+    }
+    
     return {
       shouldShowAlert,
       shouldPlaySound,
       shouldSetBadge,
-      priority: Notifications.AndroidNotificationPriority.HIGH,
+      priority: Notifications.AndroidNotificationPriority.MAX,
+      // Configuración adicional para Android
+      androidNotificationVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      android: {
+        channelId: 'default',
+        vibrationPattern: [0, 250, 250, 250],
+        // Hacer que la notificación sea siempre visible
+        sticky: false,
+        ongoing: false,
+        sound: "default", // Asegurar que se usa un sonido para la notificación
+      }
     };
   },
 });
+
+// Función para manejar notificaciones de cierre de sesión forzado
+const handleForceLogoutNotification = async (notification: Notifications.Notification) => {
+  try {
+    console.log('[NotificationService] Recibida notificación de cierre de sesión forzado');
+    
+    // Marcar la sesión como inválida usando el nuevo servicio
+    await markSessionAsInvalid();
+    
+    // También mantener el indicador anterior por compatibilidad
+    await AsyncStorage.setItem('force_logout_requested', 'true');
+    
+    // Almacenar mensaje para mostrar en la pantalla de login
+    await AsyncStorage.setItem('force_logout_message', 'Tu sesión se ha cerrado porque iniciaste sesión en otro dispositivo.');
+    
+    // Almacenar esta notificación en el historial
+    await saveNotificationToHistory(notification);
+    
+    // Notificar al sistema que ha habido un cambio en las notificaciones
+    if (notifyNotificationUpdate) {
+      notifyNotificationUpdate();
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('[NotificationService] Error al procesar notificación de cierre de sesión:', error);
+    return false;
+  }
+};
+
+// Función para verificar si hay una solicitud de cierre de sesión forzado pendiente
+export const checkForPendingForceLogout = async (): Promise<boolean> => {
+  try {
+    const forceLogoutRequested = await AsyncStorage.getItem('force_logout_requested');
+    return forceLogoutRequested === 'true';
+  } catch (error) {
+    console.error('[NotificationService] Error al verificar cierre de sesión forzado:', error);
+    return false;
+  }
+};
+
+// Función para limpiar la solicitud de cierre de sesión forzado
+export const clearForceLogoutRequest = async (): Promise<void> => {
+  try {
+    await AsyncStorage.removeItem('force_logout_requested');
+  } catch (error) {
+    console.error('[NotificationService] Error al limpiar solicitud de cierre de sesión:', error);
+  }
+};
 
 // Función para obtener preferencias de notificación del usuario
 // Puedes expandir esto para soportar preferencias por tipo de notificación
@@ -94,8 +174,13 @@ export const processForegroundNotification = async (notification: Notifications.
     const { data } = notification.request.content;
     console.log('Procesando notificación en primer plano:', data);
     
-    // Crear objeto de historial y delegarlo al servicio especializado
-    await saveNotificationToHistory(notification);
+    // Verificar si es una notificación de cierre de sesión forzado
+    if (data.type === 'force_logout') {
+      await handleForceLogoutNotification(notification);
+    } else {
+      // Crear objeto de historial y delegarlo al servicio especializado
+      await saveNotificationToHistory(notification);
+    }
     
     return true;
   } catch (error) {
@@ -212,11 +297,17 @@ export const registerForPushNotifications = async (): Promise<string | null> => 
 
     // Configuración adicional para Android
     if (Platform.OS === 'android') {
-      Notifications.setNotificationChannelAsync('default', {
+      // Crear un canal de notificación con la máxima prioridad para Android
+      await Notifications.setNotificationChannelAsync('default', {
         name: 'default',
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#FF231F7C',
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        bypassDnd: true, // Ignorar el modo No molestar si es posible
+        sound: "default", // Habilitar sonido en el canal de notificaciones
+        enableVibrate: true, // Habilitar vibración
+        showBadge: true, // Mostrar contador en el icono de la app
       });
     }
 
@@ -268,6 +359,18 @@ export const handleBackgroundNotification = async (notification: Notifications.N
     console.log('Procesando notificación recibida en segundo plano:', notification);
     
     const { title, body, data } = notification.request.content;
+    
+    // Verificar si es una notificación de cierre de sesión forzado
+    if (data.type === 'force_logout') {
+      // Marcar la sesión como inválida
+      await markSessionAsInvalid();
+      
+      // También mantener el indicador anterior por compatibilidad
+      await AsyncStorage.setItem('force_logout_requested', 'true');
+      
+      // Almacenar mensaje para mostrar en la pantalla de login
+      await AsyncStorage.setItem('force_logout_message', 'Tu sesión se ha cerrado porque iniciaste sesión en otro dispositivo.');
+    }
     
     // Crear objeto de historial de notificación
     const historyItem: NotificationHistoryItem = {

@@ -27,6 +27,7 @@ import { NewsletterScreen } from '../screens/Newsletter/NewsletterScreen';
 import { CongressNavigator } from './congress/CongressNavigator';
 import { ProfileScreen } from '../screens/Profile/ProfileScreen';
 import NotificationsScreen from '../screens/Notifications/NotificationsScreen';
+import ForgotPassword from '../screens/Auth/ForgotPassword';
 import {
   MainStackParamList,
   MainTabParamList,
@@ -324,6 +325,13 @@ const MainNavigator = () => {
       <Stack.Screen
         name="Notifications"
         component={NotificationsScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="ForgotPassword"
+        component={ForgotPassword}
         options={{
           headerShown: false,
         }}
