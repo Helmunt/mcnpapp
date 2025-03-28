@@ -11,7 +11,8 @@ import {
 import { 
   getUnreadCount,
   markNotificationAsRead,
-  getNotificationHistory
+  getNotificationHistory,
+  updateAppBadge
 } from '../services/notificationHistoryService';
 import { NotificationHistoryItem } from '../types/notificationTypes';
 import { handleNotificationNavigation } from '../navigation/navigationUtils';
@@ -37,6 +38,9 @@ export const useNotifications = () => {
       const count = await getUnreadCount();
       setUnreadCount(count);
       
+      // Actualizar el badge de la app
+      await updateAppBadge(count);
+      
       // Obtener historial completo
       const history = await getNotificationHistory();
       setNotifications(history);
@@ -50,6 +54,28 @@ export const useNotifications = () => {
     }
   }, []);
   
+  // Verificar notificaciones pendientes al iniciar la app
+  const checkPendingNotifications = async () => {
+    try {
+      // Obtener la última notificación recibida (si existe)
+      const notifications = await Notifications.getPresentedNotificationsAsync();
+      
+      if (notifications && notifications.length > 0) {
+        console.log('[useNotifications] Notificaciones pendientes encontradas:', notifications.length);
+        
+        // Procesar cada notificación pendiente
+        for (const notification of notifications) {
+          await processForegroundNotification(notification);
+        }
+        
+        // Actualizar datos
+        await refreshNotificationData();
+      }
+    } catch (error) {
+      console.error('[useNotifications] Error al verificar notificaciones pendientes:', error);
+    }
+  };
+  
   // Inicializar el sistema de notificaciones
   useEffect(() => {
     const initialize = async () => {
@@ -62,6 +88,9 @@ export const useNotifications = () => {
         // Verificar permisos
         const enabled = await areNotificationsEnabled();
         setHasPermission(enabled);
+        
+        // Verificar notificaciones pendientes
+        await checkPendingNotifications();
         
         // Cargar historial y contador
         await refreshNotificationData();
@@ -107,6 +136,10 @@ export const useNotifications = () => {
     ) {
       // La app ha vuelto al primer plano, actualizar datos
       await refreshNotificationData();
+      
+      // Asegurarnos de que el badge refleje el contador actual
+      const count = await getUnreadCount();
+      await updateAppBadge(count);
     }
     
     appState.current = nextAppState;
@@ -116,30 +149,26 @@ export const useNotifications = () => {
   const setupNotificationListeners = () => {
     // Oyente para notificaciones recibidas en primer plano
     notificationListener.current = Notifications.addNotificationReceivedListener(async notification => {
-      console.log('Notificación recibida en primer plano:', notification);
+      console.log('[useNotifications] Notificación recibida en primer plano:', notification);
       
       // Procesar notificación
       await processForegroundNotification(notification);
       
-      // Actualizar datos - esto se hace vía notificación ahora,
-      // así que no necesitamos llamar directamente a refreshNotificationData
-      // Los datos se actualizarán gracias a la suscripción que configuramos
+      // Actualizar datos inmediatamente
+      await refreshNotificationData();
     });
     
     // Oyente para respuestas a notificaciones (cuando el usuario toca una notificación)
     responseListener.current = Notifications.addNotificationResponseReceivedListener(async response => {
-      console.log('Respuesta a notificación recibida:', response);
+      console.log('[useNotifications] Respuesta a notificación recibida:', response);
       
       const notificationId = response.notification.request.identifier;
       
       // Marcar como leída
       await markNotificationAsRead(notificationId);
       
-      // Procesar la notificación en caso de que haya sido recibida en segundo plano
-      await handleBackgroundNotification(response.notification);
-      
-      // Actualizar datos - esto se hace vía notificación ahora
-      // Los datos se actualizarán gracias a la suscripción que configuramos
+      // Actualizar datos inmediatamente
+      await refreshNotificationData();
       
       // Usar un pequeño timeout para asegurar que los datos están actualizados
       // antes de la navegación

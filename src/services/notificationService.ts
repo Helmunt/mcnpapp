@@ -172,19 +172,22 @@ export const saveNotificationPreferences = async (preferences: {
 export const processForegroundNotification = async (notification: Notifications.Notification) => {
   try {
     const { data } = notification.request.content;
-    console.log('Procesando notificación en primer plano:', data);
+    console.log('[NotificationService] Procesando notificación en primer plano:', data);
     
     // Verificar si es una notificación de cierre de sesión forzado
-    if (data.type === 'force_logout') {
+    if (data && data.type === 'force_logout') {
       await handleForceLogoutNotification(notification);
     } else {
-      // Crear objeto de historial y delegarlo al servicio especializado
+      // Guardar TODAS las notificaciones en el historial inmediatamente
       await saveNotificationToHistory(notification);
+      
+      // Notificar cambios para actualizar la UI inmediatamente
+      notifyNotificationUpdate();
     }
     
     return true;
   } catch (error) {
-    console.error('Error al procesar notificación en primer plano:', error);
+    console.error('[NotificationService] Error al procesar notificación en primer plano:', error);
     return false;
   }
 };
@@ -356,12 +359,12 @@ export const setupNotificationSystem = async (): Promise<boolean> => {
 // Función para manejar notificaciones recibidas en segundo plano
 export const handleBackgroundNotification = async (notification: Notifications.Notification): Promise<boolean> => {
   try {
-    console.log('Procesando notificación recibida en segundo plano:', notification);
+    console.log('[NotificationService] Procesando notificación recibida en segundo plano:', notification);
     
     const { title, body, data } = notification.request.content;
     
     // Verificar si es una notificación de cierre de sesión forzado
-    if (data.type === 'force_logout') {
+    if (data && data.type === 'force_logout') {
       // Marcar la sesión como inválida
       await markSessionAsInvalid();
       
@@ -384,12 +387,14 @@ export const handleBackgroundNotification = async (notification: Notifications.N
     };
     
     // Usar el nuevo servicio de historial para añadir la notificación
-    // addNotificationToHistory ya maneja la verificación de duplicados
     await addNotificationToHistory(historyItem);
+    
+    // Notificar a los componentes sobre el cambio explícitamente
+    notifyNotificationUpdate();
     
     return true;
   } catch (error) {
-    console.error('Error al manejar notificación en segundo plano:', error);
+    console.error('[NotificationService] Error al manejar notificación en segundo plano:', error);
     return false;
   }
 };

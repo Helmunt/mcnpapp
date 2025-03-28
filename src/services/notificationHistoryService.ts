@@ -438,6 +438,9 @@ export const importNotificationHistory = async (jsonData: string): Promise<boole
     const unreadCount = validNotifications.filter((item: any) => !item.read).length;
     await AsyncStorage.setItem(UNREAD_COUNT_KEY, unreadCount.toString());
     
+    // Actualizar el badge también
+    await updateAppBadge(unreadCount);
+    
     // Notificar a los componentes sobre el cambio
     notifyNotificationUpdate();
     
@@ -445,6 +448,25 @@ export const importNotificationHistory = async (jsonData: string): Promise<boole
   } catch (error) {
     console.error('Error al importar historial de notificaciones:', error);
     return false;
+  }
+};
+
+/**
+ * Actualiza el badge de la aplicación con el contador actual
+ * @param count Contador opcional. Si no se proporciona, se obtiene del almacenamiento.
+ */
+export const updateAppBadge = async (count?: number): Promise<void> => {
+  try {
+    // Si no se proporciona un conteo, obtenerlo del almacenamiento
+    if (count === undefined) {
+      count = await getUnreadCount();
+    }
+    
+    // Actualizar el badge de la aplicación
+    await Notifications.setBadgeCountAsync(count);
+    console.log('[notificationHistoryService] Badge actualizado a:', count);
+  } catch (error) {
+    console.error('[notificationHistoryService] Error al actualizar badge:', error);
   }
 };
 
@@ -469,7 +491,10 @@ export const getUnreadCount = async (): Promise<number> => {
 const incrementUnreadCount = async (): Promise<void> => {
   try {
     const current = await getUnreadCount();
-    await AsyncStorage.setItem(UNREAD_COUNT_KEY, (current + 1).toString());
+    const newCount = current + 1;
+    await AsyncStorage.setItem(UNREAD_COUNT_KEY, newCount.toString());
+    // Actualizar también el badge
+    await updateAppBadge(newCount);
   } catch (error) {
     console.error('Error al incrementar contador de no leídas:', error);
   }
@@ -483,6 +508,8 @@ const decrementUnreadCount = async (): Promise<void> => {
     const current = await getUnreadCount();
     const newValue = Math.max(0, current - 1); // Asegurar que no sea negativo
     await AsyncStorage.setItem(UNREAD_COUNT_KEY, newValue.toString());
+    // Actualizar también el badge
+    await updateAppBadge(newValue);
   } catch (error) {
     console.error('Error al decrementar contador de no leídas:', error);
   }
@@ -496,6 +523,8 @@ const decrementUnreadCountBy = async (count: number): Promise<void> => {
     const current = await getUnreadCount();
     const newValue = Math.max(0, current - count); // Asegurar que no sea negativo
     await AsyncStorage.setItem(UNREAD_COUNT_KEY, newValue.toString());
+    // Actualizar también el badge
+    await updateAppBadge(newValue);
   } catch (error) {
     console.error('Error al decrementar contador de no leídas:', error);
   }
@@ -507,6 +536,8 @@ const decrementUnreadCountBy = async (count: number): Promise<void> => {
 const resetUnreadCount = async (): Promise<void> => {
   try {
     await AsyncStorage.setItem(UNREAD_COUNT_KEY, '0');
+    // Resetear también el badge
+    await updateAppBadge(0);
   } catch (error) {
     console.error('Error al resetear contador de no leídas:', error);
   }
@@ -521,6 +552,9 @@ export const syncUnreadCount = async (): Promise<number> => {
     const history = await getNotificationHistory();
     const unreadCount = history.filter(item => !item.read).length;
     await AsyncStorage.setItem(UNREAD_COUNT_KEY, unreadCount.toString());
+    
+    // Actualizar también el badge
+    await updateAppBadge(unreadCount);
     
     // Notificar a los componentes sobre el cambio
     notifyNotificationUpdate();

@@ -69,9 +69,14 @@ const saveBackgroundNotificationToHistory = async (notification: Notifications.N
     };
     
     // Usar el nuevo servicio de historial para añadir la notificación
-    return await addNotificationToHistory(historyItem);
+    const success = await addNotificationToHistory(historyItem);
+    
+    // No es necesario llamar a notifyNotificationUpdate() aquí ya que
+    // addNotificationToHistory ya lo hace internamente
+    
+    return success;
   } catch (error) {
-    console.error('Error al guardar notificación en historial:', error);
+    console.error('[backgroundNotificationTask] Error al guardar notificación en historial:', error);
     return false;
   }
 };
