@@ -14,6 +14,7 @@ import { getStoredPushToken } from './src/services/notificationService';
 import { updatePushTokenIfNeeded, markTokenAsUnregistered } from './src/services/pushTokenService';
 import { navigationRef, handleNotificationNavigation } from './src/navigation/navigationUtils';
 import * as Notifications from 'expo-notifications';
+import * as Updates from 'expo-updates';
 import ForgotPassword from './src/screens/Auth/ForgotPassword';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -184,6 +185,30 @@ function AppContent() {
 }
 
 export default function App() {
+  // Verificar actualizaciones OTA
+  useEffect(() => {
+    async function checkForUpdates() {
+      try {
+        const update = await Updates.checkForUpdateAsync();
+        
+        if (update.isAvailable) {
+          console.log('[Updates] Nueva actualización disponible, descargando...');
+          await Updates.fetchUpdateAsync();
+          
+          // Alerta al usuario y reinicia la app para aplicar la actualización
+          console.log('[Updates] Actualización descargada, reiniciando...');
+          await Updates.reloadAsync();
+        } else {
+          console.log('[Updates] No hay actualizaciones disponibles');
+        }
+      } catch (error) {
+        console.error('[Updates] Error al verificar actualizaciones:', error);
+      }
+    }
+    
+    checkForUpdates();
+  }, []);
+
   return (
     <AuthProvider>
       <UserProvider>
