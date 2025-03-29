@@ -189,20 +189,31 @@ export default function App() {
   useEffect(() => {
     async function checkForUpdates() {
       try {
-        const update = await Updates.checkForUpdateAsync();
+        console.log('[Updates] Modo de desarrollo:', __DEV__);
         
-        if (update.isAvailable) {
-          console.log('[Updates] Nueva actualización disponible, descargando...');
-          await Updates.fetchUpdateAsync();
+        // Solo verificar en modo de producción
+        if (!__DEV__) {
+          console.log('[Updates] Verificando actualizaciones...');
+          const update = await Updates.checkForUpdateAsync();
           
-          // Alerta al usuario y reinicia la app para aplicar la actualización
-          console.log('[Updates] Actualización descargada, reiniciando...');
-          await Updates.reloadAsync();
+          console.log('[Updates] Resultado de checkForUpdateAsync:', JSON.stringify(update));
+          
+          if (update.isAvailable) {
+            console.log('[Updates] Nueva actualización disponible, descargando...');
+            const fetchResult = await Updates.fetchUpdateAsync();
+            
+            console.log('[Updates] Resultado de fetchUpdateAsync:', JSON.stringify(fetchResult));
+            
+            console.log('[Updates] Actualización descargada, reiniciando...');
+            await Updates.reloadAsync();
+          } else {
+            console.log('[Updates] No hay actualizaciones disponibles');
+          }
         } else {
-          console.log('[Updates] No hay actualizaciones disponibles');
+          console.log('[Updates] Omitiendo verificación de actualizaciones en modo desarrollo');
         }
       } catch (error) {
-        console.error('[Updates] Error al verificar actualizaciones:', error);
+        console.error('[Updates] Error detallado al verificar actualizaciones:', error);
       }
     }
     
