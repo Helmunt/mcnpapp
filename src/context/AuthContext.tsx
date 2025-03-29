@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { 
   User, 
@@ -11,6 +11,8 @@ import { BuddyPressService } from '../services/buddypress';
 import { checkForPendingForceLogout, clearForceLogoutRequest } from '../services/notificationService';
 import { AppState, AppStateStatus } from 'react-native';
 import { markSessionAsValid, isSessionValid, clearSessionValidity } from '../services/sessionValidityService';
+import { checkFormCompletionStatus, clearFormCompletionStatus } from '../services/userFormService';
+import RequiredFormModal from '../components/shared/RequiredFormModal';
 
 type AuthAction =
   | { type: 'RESTORE_AUTH'; payload: { user: User } }
@@ -24,6 +26,8 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   isRoleAuthorized: (allowedRoles: UserRole[]) => boolean;
+  needsToFillForm: boolean;
+  formCompleted: () => void;
 }
 
 const initialState: AuthState = {
@@ -78,6 +82,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
+  const [needsToFillForm, setNeedsToFillForm] = useState(false);
 
   // Función auxiliar para convertir roles de WordPress a roles de la aplicación
   const mapWordPressRole = (wpRole: string): UserRole | null => {
@@ -110,6 +115,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Verificar si el usuario necesita completar el formulario
+  const checkUserFormStatus = async (userId: number, token: string) => {
+    if (!userId || !token) return;
+    
+    try {
+      // Verificar si el usuario tiene el rol "Congreso" (con mayúscula inicial)
+      if (state.user?.role !== 'Congreso') {
+        // Si no es Congreso, no mostrar el formulario
+        setNeedsToFillForm(false);
+        return;
+      }
+  
+      const formCompleted = await checkFormCompletionStatus(userId, token);
+      setNeedsToFillForm(!formCompleted);
+    } catch (error) {
+      console.error('[AuthContext] Error al verificar estado del formulario:', error);
+      // En caso de error, asumimos que no es necesario para no bloquear la app
+      setNeedsToFillForm(false);
+    }
+  };
+
+  // Marcar que el usuario completó el formulario
+  const formCompleted = () => {
+    setNeedsToFillForm(false);
+  };
+
   useEffect(() => {
     const loadStoredAuth = async () => {
       try {
@@ -122,6 +153,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             
             if (sessionIsValid) {
               dispatch({ type: 'RESTORE_AUTH', payload: authData });
+              
+              // Verificar si el usuario necesita completar el formulario
+              await checkUserFormStatus(authData.user.id, authData.user.token);
             } else {
               console.log('[AuthContext] Sesión almacenada inválida, redirigiendo a login');
               await AsyncStorage.setItem('force_logout_message', 'Tu sesión ha expirado o se ha iniciado en otro dispositivo.');
@@ -161,6 +195,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       clearInterval(interval);
     };
   }, [state.isAuthenticated]);
+
+  // Efecto para verificar el estado del formulario cuando cambia el usuario
+  useEffect(() => {
+    if (state.user?.id && state.user?.token) {
+      checkUserFormStatus(state.user.id, state.user.token);
+    }
+  }, [state.user?.id]);
 
   const login = async (username: string, password: string) => {
     try {
@@ -245,6 +286,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await AsyncStorage.setItem('auth', JSON.stringify({ user }));
       dispatch({ type: 'LOGIN_SUCCESS', payload: user });
 
+      // Verificar si el usuario necesita completar el formulario
+      await checkUserFormStatus(user.id, user.token);
+
       // Limpiar cualquier mensaje de cierre de sesión forzado
       await AsyncStorage.removeItem('force_logout_message');
 
@@ -269,6 +313,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Limpiar datos de validez de sesión
       await clearSessionValidity();
       
+      // Limpiar estado del formulario
+      await clearFormCompletionStatus();
+      
       // Limpiar token de BuddyPress para evitar problemas de persistencia entre usuarios
       await BuddyPressService.clearToken();
       console.log('[AuthContext] Token de BuddyPress eliminado');
@@ -287,6 +334,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Actualizar estado
       dispatch({ type: 'LOGOUT' });
       
+      // Aseguramos que el estado del formulario también se limpie
+      setNeedsToFillForm(false);
+      
       console.log('[AuthContext] Cierre de sesión completado');
     } catch (error) {
       console.error('[AuthContext] Error durante logout:', error);
@@ -304,6 +354,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await clearSessionValidity();
         
         dispatch({ type: 'LOGOUT' });
+        setNeedsToFillForm(false);
       } catch (innerError) {
         console.error('[AuthContext] Error crítico durante logout:', innerError);
       }
@@ -316,7 +367,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ state, login, logout, isRoleAuthorized }}>
+    <AuthContext.Provider value={{ state, login, logout, isRoleAuthorized, needsToFillForm, formCompleted }}>
+      {state.isAuthenticated && needsToFillForm && state.user && state.user.id > 0 && (
+        <RequiredFormModal 
+          visible={needsToFillForm} 
+          userId={state.user.id} 
+          onFormCompleted={formCompleted} 
+          key={`form-modal-${state.user.id}`} // Añadir key para estabilidad
+        />
+      )}
       {children}
     </AuthContext.Provider>
   );
