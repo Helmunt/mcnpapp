@@ -18,7 +18,15 @@
       }
     },
     "production": {
-      "autoIncrement": true
+      "channel": "production",
+      "distribution": "store",
+      "autoIncrement": true,
+      "ios": {
+        "resourceClass": "m-medium"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      }
     }
   },
   "submit": {
