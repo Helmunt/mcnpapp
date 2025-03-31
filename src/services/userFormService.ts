@@ -317,3 +317,41 @@ export const forceFormStatusUpdate = async (userId: number, status: string): Pro
     return false;
   }
 };
+
+
+// Verificar el conteo de asistentes a la actividad del tanque de tapas
+export const checkTanqueTapasAttendees = async (): Promise<{
+  count: number;
+  limitReached: boolean;
+}> => {
+  try {
+    console.log('[userFormService] Consultando conteo de asistentes a Tanque Tapas');
+    
+    const response = await fetch(`${API_URL}/wp-json/mcnp/v1/tanque-tapas-count`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    
+    if (!response.ok) {
+      console.error('[userFormService] Error en respuesta del servidor:', response.status);
+      return { count: 0, limitReached: false };
+    }
+    
+    const data = await response.json();
+    console.log('[userFormService] Conteo de asistentes Tanque Tapas:', data);
+    
+    // Determinar si se ha alcanzado el límite (150 personas)
+    const limitReached = data.count >= 150;
+    
+    return {
+      count: data.count,
+      limitReached: limitReached
+    };
+  } catch (error) {
+    console.error('[userFormService] Error al consultar conteo de Tanque Tapas:', error);
+    // En caso de error, asumimos que no se ha alcanzado el límite
+    return { count: 0, limitReached: false };
+  }
+};

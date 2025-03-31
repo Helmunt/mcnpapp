@@ -359,12 +359,16 @@ export const setupNotificationSystem = async (): Promise<boolean> => {
 // Función para manejar notificaciones recibidas en segundo plano
 export const handleBackgroundNotification = async (notification: Notifications.Notification): Promise<boolean> => {
   try {
-    console.log('[NotificationService] Procesando notificación recibida en segundo plano:', notification);
+    console.log('[NotificationService] Procesando notificación recibida en segundo plano:', notification.request?.identifier);
     
-    const { title, body, data } = notification.request.content;
+    const title = notification.request?.content?.title || 'Sin título';
+    const body = notification.request?.content?.body || 'Sin contenido';
+    const data = notification.request?.content?.data || {};
+    const id = notification.request?.identifier || `notification-${Date.now()}`;
     
     // Verificar si es una notificación de cierre de sesión forzado
     if (data && data.type === 'force_logout') {
+      console.log('[NotificationService] Procesando notificación de cierre de sesión forzado');
       // Marcar la sesión como inválida
       await markSessionAsInvalid();
       
@@ -377,22 +381,29 @@ export const handleBackgroundNotification = async (notification: Notifications.N
     
     // Crear objeto de historial de notificación
     const historyItem: NotificationHistoryItem = {
-      id: notification.request.identifier,
-      title: title || 'Sin título',
-      body: body || 'Sin contenido',
-      data: data || {},
+      id: id,
+      title: title,
+      body: body,
+      data: data,
       receivedAt: new Date().toISOString(),
       read: false,
       receivedInBackground: true
     };
     
     // Usar el nuevo servicio de historial para añadir la notificación
-    await addNotificationToHistory(historyItem);
+    const success = await addNotificationToHistory(historyItem);
     
-    // Notificar a los componentes sobre el cambio explícitamente
-    notifyNotificationUpdate();
+    // Asegurarnos de notificar explícitamente a los componentes
+    if (notifyNotificationUpdate) {
+      try {
+        notifyNotificationUpdate();
+        console.log('[NotificationService] Notificación de actualización enviada');
+      } catch (error) {
+        console.error('[NotificationService] Error al notificar cambios:', error);
+      }
+    }
     
-    return true;
+    return success;
   } catch (error) {
     console.error('[NotificationService] Error al manejar notificación en segundo plano:', error);
     return false;

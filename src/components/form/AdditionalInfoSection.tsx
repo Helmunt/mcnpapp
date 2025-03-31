@@ -1,10 +1,12 @@
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, Text } from 'react-native';
 import TextInputField from './TextInputField';
 import SelectField from './SelectField';
 import MultiSelectField from './MultiSelectField';
 import CheckboxField from './CheckboxField';
 import { PartialUserFormData, FIELD_OPTIONS } from '../../types/userFormTypes';
+import { checkTanqueTapasAttendees } from '../../services/userFormService';
+import { COLORS } from '../../constants/theme';
 
 interface AdditionalInfoSectionProps {
   formData: PartialUserFormData;
@@ -17,6 +19,33 @@ const AdditionalInfoSection: React.FC<AdditionalInfoSectionProps> = ({
   setFormData,
   errors = {}
 }) => {
+  // Estado para controlar si se alcanzó el límite de cupos
+  const [tanqueTapasFull, setTanqueTapasFull] = useState(false);
+
+  // Verificar el conteo de asistentes al cargar el componente
+  useEffect(() => {
+    const checkAttendees = async () => {
+      try {
+        const { limitReached } = await checkTanqueTapasAttendees();
+        
+        // Si se alcanzó el límite, marcar como lleno y actualizar el formData
+        if (limitReached) {
+          setTanqueTapasFull(true);
+          
+          // Si el usuario no había seleccionado una opción aún o había seleccionado "Asistire",
+          // lo cambiamos a "No asistire" automáticamente
+          if (!formData.actividad_tanque_tapas || formData.actividad_tanque_tapas === 'Asistire') {
+            updateField('actividad_tanque_tapas', 'No asistire');
+          }
+        }
+      } catch (error) {
+        console.error('[AdditionalInfoSection] Error al verificar asistentes:', error);
+      }
+    };
+    
+    checkAttendees();
+  }, []);
+
   // Función helper para actualizar el formData
   const updateField = (field: keyof PartialUserFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -51,14 +80,32 @@ const AdditionalInfoSection: React.FC<AdditionalInfoSectionProps> = ({
         error={errors.reto_sedentarismo}
       />
       
-      <SelectField
-        label="Actividad Tanque Tapas"
-        value={formData.actividad_tanque_tapas || ''}
-        onValueChange={(value) => updateField('actividad_tanque_tapas', value)}
-        options={FIELD_OPTIONS.actividad_tanque_tapas}
-        required={true}
-        error={errors.actividad_tanque_tapas}
-      />
+      <View>
+        {tanqueTapasFull ? (
+          <>
+            <SelectField
+              label="Inscribete al TANQUE de pensamiento con TAPAS gastronómicas (cupos limitados)"
+              value="No asistire"
+              onValueChange={() => {}} // No hacer nada cuando se intenta cambiar
+              options={[{ value: 'No asistire', label: 'No asistiré' }]} // Solo mostrar esta opción
+              required={true}
+              error={errors.actividad_tanque_tapas}
+            />
+            <Text style={styles.fullMessage}>
+              Lo sentimos, todos los cupos para esta actividad ya han sido ocupados
+            </Text>
+          </>
+        ) : (
+          <SelectField
+            label="Inscribete al TANQUE de pensamiento con TAPAS gastronómicas (cupos limitados)"
+            value={formData.actividad_tanque_tapas || ''}
+            onValueChange={(value) => updateField('actividad_tanque_tapas', value)}
+            options={FIELD_OPTIONS.actividad_tanque_tapas}
+            required={true}
+            error={errors.actividad_tanque_tapas}
+          />
+        )}
+      </View>
       
       <TextInputField
         label="¿Tienes alguna alergia que ponga en peligro tu vida?"
@@ -127,6 +174,13 @@ const AdditionalInfoSection: React.FC<AdditionalInfoSectionProps> = ({
 const styles = StyleSheet.create({
   container: {
     marginBottom: 20,
+  },
+  fullMessage: {
+    color: COLORS.error || 'red',
+    fontSize: 14,
+    marginTop: 5,
+    marginBottom: 10,
+    fontStyle: 'italic',
   },
 });
 

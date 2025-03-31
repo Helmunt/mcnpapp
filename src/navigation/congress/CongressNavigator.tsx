@@ -8,10 +8,15 @@ import { AgendaScreen } from '../../screens/Congress/screens/AgendaScreen';
 import { SpeakersScreen } from '../../screens/Congress/screens/SpeakersScreen';
 import { MapScreen } from '../../screens/Congress/screens/MapScreen';
 import { QRScreen } from '../../screens/Congress/screens/QRScreen';
-import { QuizScreen } from '../../screens/Congress/screens/QuizScreen';
+import { QuizScreen as OldQuizScreen } from '../../screens/Congress/screens/QuizScreen';
 import { CertificatesScreen } from '../../screens/Congress/screens/CertificatesScreen';
 import { CongressStackParamList } from '../../types/navigation';
 import { COLORS } from '../../constants/theme';
+
+// Importaciones para el sistema de cuestionarios
+import QuizzesListScreen from '../../screens/Quiz/QuizzesListScreen';
+import QuizScreen from '../../screens/Quiz/QuizScreen';
+import QuizResultScreen from '../../screens/Quiz/QuizResultScreen';
 
 const Stack = createNativeStackNavigator<CongressStackParamList>();
 
@@ -115,7 +120,7 @@ export const CongressNavigator = () => {
       />
       <Stack.Screen 
         name="CongressQuiz" 
-        component={QuizScreen}
+        component={OldQuizScreen}
         options={({ navigation }) => ({
           header: () => (
             <CustomHeader 
@@ -132,6 +137,44 @@ export const CongressNavigator = () => {
           header: () => (
             <CustomHeader 
               title="Certificados" 
+              navigation={navigation}
+            />
+          )
+        })}
+      />
+      
+      {/* Nuevas pantallas de cuestionarios integradas al flujo de Congress */}
+      <Stack.Screen 
+        name="QuizzesList" 
+        component={QuizzesListScreen}
+        options={({ navigation }) => ({
+          header: () => (
+            <CustomHeader 
+              title="Cuestionarios" 
+              navigation={navigation}
+            />
+          )
+        })}
+      />
+      <Stack.Screen 
+        name="Quiz" 
+        component={QuizScreen}
+        options={({ navigation }) => ({
+          header: () => (
+            <CustomHeader 
+              title="Cuestionario" 
+              navigation={navigation}
+            />
+          )
+        })}
+      />
+      <Stack.Screen 
+        name="QuizResult" 
+        component={QuizResultScreen}
+        options={({ navigation }) => ({
+          header: () => (
+            <CustomHeader 
+              title="Resultados" 
               navigation={navigation}
             />
           )

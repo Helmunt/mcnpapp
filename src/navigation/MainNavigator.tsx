@@ -336,6 +336,7 @@ const MainNavigator = () => {
           headerShown: false,
         }}
       />
+      {/* Se eliminó la referencia a Quiz */}
     </Stack.Navigator>
   );
 };

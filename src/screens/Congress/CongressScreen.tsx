@@ -41,7 +41,10 @@ export const CongressScreen = ({ navigation }: Props) => {
         <MenuItem
           iconName="book-open"
           title="QUIZ"
-          onPress={() => navigation.navigate('CongressQuiz')}
+          onPress={() => {
+            // Modificado: Navegar a la lista de cuestionarios dentro del CongressNavigator
+            navigation.navigate('QuizzesList');
+          }}
         />
       </View>
     </View>

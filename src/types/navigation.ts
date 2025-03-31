@@ -1,7 +1,7 @@
 import { CompositeNavigationProp, NavigatorScreenParams } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-
+import { QuizStackParamList } from '../navigation/quiz/QuizNavigator';
 
 // Stack principal
 export type RootStackParamList = {
@@ -23,6 +23,7 @@ export type MainStackParamList = {
   Profile: NavigatorScreenParams<ProfileStackParamList>;
   Notifications: undefined;
   ForgotPassword: undefined;
+  Quiz: NavigatorScreenParams<QuizStackParamList>;
 };
 
 // Stack del Congreso
@@ -34,6 +35,10 @@ export type CongressStackParamList = {
   CongressQR: undefined;
   CongressQuiz: undefined;
   CongressCertificates: undefined;
+  // Añadir las pantallas de cuestionarios al stack del congreso
+  QuizzesList: undefined;
+  Quiz: { quizId: number };
+  QuizResult: { quizId: number, resultId?: number, result?: any };
 };
 
 // Stack para Social

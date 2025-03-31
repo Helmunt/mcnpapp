@@ -54,28 +54,45 @@ export const useNotifications = () => {
     }
   }, []);
   
-  // Verificar notificaciones pendientes al iniciar la app
-  const checkPendingNotifications = async () => {
-    try {
-      // Obtener la última notificación recibida (si existe)
-      const notifications = await Notifications.getPresentedNotificationsAsync();
+// Verificar notificaciones pendientes al iniciar la app
+const checkPendingNotifications = async () => {
+  try {
+    console.log('[useNotifications] Verificando notificaciones pendientes...');
+    
+    // Obtener todas las notificaciones pendientes
+    const presentedNotifications = await Notifications.getPresentedNotificationsAsync();
+    
+    if (presentedNotifications && presentedNotifications.length > 0) {
+      console.log('[useNotifications] Notificaciones pendientes encontradas:', presentedNotifications.length);
       
-      if (notifications && notifications.length > 0) {
-        console.log('[useNotifications] Notificaciones pendientes encontradas:', notifications.length);
-        
-        // Procesar cada notificación pendiente
-        for (const notification of notifications) {
-          await processForegroundNotification(notification);
-        }
-        
-        // Actualizar datos
-        await refreshNotificationData();
+      // Procesar cada notificación pendiente
+      for (const notification of presentedNotifications) {
+        await processForegroundNotification(notification);
       }
-    } catch (error) {
-      console.error('[useNotifications] Error al verificar notificaciones pendientes:', error);
     }
-  };
-  
+    
+    // También verificar notificaciones recibidas mientras la app estaba cerrada
+    const lastNotificationResponse = await Notifications.getLastNotificationResponseAsync();
+    if (lastNotificationResponse) {
+      console.log('[useNotifications] Última respuesta de notificación encontrada:', 
+        lastNotificationResponse.notification.request.identifier);
+      
+      // Marcar como leída y manejar navegación
+      const notificationId = lastNotificationResponse.notification.request.identifier;
+      await markNotificationAsRead(notificationId);
+      
+      // Pequeño retraso para asegurar que los datos estén actualizados
+      setTimeout(() => {
+        handleNotificationNavigation(lastNotificationResponse.notification.request.content.data);
+      }, 500);
+    }
+    
+    // Actualizar datos después de procesar todas las notificaciones
+    await refreshNotificationData();
+  } catch (error) {
+    console.error('[useNotifications] Error al verificar notificaciones pendientes:', error);
+  }
+};
   // Inicializar el sistema de notificaciones
   useEffect(() => {
     const initialize = async () => {
@@ -128,22 +145,27 @@ export const useNotifications = () => {
     };
   }, [refreshNotificationData]);
   
-  // Manejar cambios en el estado de la aplicación (foreground/background)
-  const handleAppStateChange = async (nextAppState: AppStateStatus) => {
-    if (
-      appState.current.match(/inactive|background/) &&
-      nextAppState === 'active'
-    ) {
-      // La app ha vuelto al primer plano, actualizar datos
-      await refreshNotificationData();
-      
-      // Asegurarnos de que el badge refleje el contador actual
-      const count = await getUnreadCount();
-      await updateAppBadge(count);
-    }
+// Manejar cambios en el estado de la aplicación (foreground/background)
+const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+  if (
+    appState.current.match(/inactive|background/) &&
+    nextAppState === 'active'
+  ) {
+    console.log('[useNotifications] App volvió al primer plano, verificando notificaciones...');
     
-    appState.current = nextAppState;
-  };
+    // Verificar si hay notificaciones pendientes
+    await checkPendingNotifications();
+    
+    // La app ha vuelto al primer plano, actualizar datos
+    await refreshNotificationData();
+    
+    // Asegurarnos de que el badge refleje el contador actual
+    const count = await getUnreadCount();
+    await updateAppBadge(count);
+  }
+  
+  appState.current = nextAppState;
+};
   
   // Configurar los oyentes de notificaciones
   const setupNotificationListeners = () => {
