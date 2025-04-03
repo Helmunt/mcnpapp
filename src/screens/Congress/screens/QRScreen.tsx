@@ -1,77 +1,73 @@
-import React, { useState, useRef } from 'react';
-import { View, StyleSheet, ActivityIndicator, Platform } from 'react-native';
-import WebView from 'react-native-webview';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, ActivityIndicator, Image, Text } from 'react-native';
 import { COLORS } from '../../../constants/theme';
+import { useAuth } from '../../../context/AuthContext';
+import { getUserQrUrl } from '../../../services/userQrService';
 
 export const QRScreen = () => {
   const [isLoading, setIsLoading] = useState(true);
-  const webViewRef = useRef(null);
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const { state } = useAuth();
 
-  // CSS para ocultar elementos no deseados del sitio web
-  const cssRules = `
-    div.site-header-wrapper,
-    header#masthead,
-    div.elementor-location-header,
-    .site-header {
-      display: none !important;
-      height: 0 !important;
-      min-height: 0 !important;
-      padding: 0 !important;
-      margin: 0 !important;
-    }
-    body {
-      padding-top: 0 !important;
-      margin-top: 0 !important;
-    }
-  `;
+  useEffect(() => {
+    const loadQrCode = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
 
-  // Script para Android
-  const injectedScript = `
-    (function() {
-      const style = document.createElement('style');
-      style.type = 'text/css';
-      style.appendChild(document.createTextNode(\`${cssRules}\`));
-      document.head.appendChild(style);
-    })();
-    true;
-  `;
+        if (!state.user || !state.user.id || !state.user.token) {
+          setError('No se pudo obtener información del usuario');
+          setIsLoading(false);
+          return;
+        }
 
-  // Script para iOS
-  const userScript = {
-    source: `
-      var style = document.createElement('style');
-      style.type = 'text/css';
-      style.innerHTML = \`${cssRules}\`;
-      document.documentElement.appendChild(style);
-    `,
-    injectionTime: 'beforeContentLoaded',
-  };
+        const url = await getUserQrUrl(state.user.id, state.user.token);
+        
+        if (!url) {
+          setError('No se encontró el código QR para tu usuario');
+          setIsLoading(false);
+          return;
+        }
+
+        setQrUrl(url);
+        setIsLoading(false);
+      } catch (err) {
+        console.error('Error al cargar código QR:', err);
+        setError('Error al cargar el código QR');
+        setIsLoading(false);
+      }
+    };
+
+    loadQrCode();
+  }, [state.user]);
 
   return (
     <View style={styles.container}>
-      <WebView
-        ref={webViewRef}
-        source={{ 
-          uri: 'https://mcnpmexico.org/codigo-qr/',
-          headers: {
-            'Cache-Control': 'no-cache'
-          }
-        }}
-        style={[styles.webview, isLoading && styles.hiddenWebview]}
-        onLoadStart={() => setIsLoading(true)}
-        onLoadEnd={() => setIsLoading(false)}
-        startInLoadingState={true}
-        javaScriptEnabled={true}
-        domStorageEnabled={true}
-        scalesPageToFit={true}
-        cacheEnabled={false}
-        injectedJavaScript={Platform.OS === 'android' ? injectedScript : undefined}
-        userAgent={Platform.OS === 'ios' ? 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1' : undefined}
-        injectedJavaScriptBeforeContentLoaded={Platform.OS === 'ios' ? userScript.source : undefined}
-      />
-      {isLoading && (
+      <Text style={styles.welcomeText}>
+        ¡Bienvenidos al Congreso de Neuropsicofarmacología 2025! Utiliza el código QR que aparece en pantalla para registrarte al llegar. ¡Es rápido y fácil!
+      </Text>
+      
+      {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : qrUrl ? (
+        <View style={styles.qrContainer}>
+          <Image
+            source={{ uri: qrUrl }}
+            style={styles.qrImage}
+            resizeMode="contain"
+            onError={() => setError('No se pudo cargar la imagen del código QR')}
+          />
+        </View>
+      ) : (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>No se encontró código QR</Text>
         </View>
       )}
     </View>
@@ -83,19 +79,39 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.white,
   },
-  webview: {
-    flex: 1,
-    opacity: 1,
-  },
-  hiddenWebview: {
-    opacity: 0,
+  welcomeText: {
+    fontSize: 16,
+    textAlign: 'center',
+    margin: 20,
+    marginTop: 30,
+    color: COLORS.text,
+    paddingHorizontal: 20,
   },
   loadingContainer: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
-  }
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#ff0000',
+    textAlign: 'center',
+  },
+  qrContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    padding: 20,
+  },
+  qrImage: {
+    width: '90%',
+    height: '90%',
+  },
 });

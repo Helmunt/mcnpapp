@@ -104,8 +104,9 @@ const QuizResultScreen = () => {
           <Text style={styles.completedText}>Cuestionario completado</Text>
         </View>
         
-        {/* Resumen de puntuación */}
+        {/* Resumen de puntuación (Modificado para layout horizontal) */}
         <View style={styles.scoreContainer}>
+          {/* Círculo de Puntuación (Izquierda) */}
           <View style={[styles.scoreCircle, { borderColor: getScoreColor() }]}>
             <Text style={[styles.scorePercentage, { color: getScoreColor() }]}>
               {calculatePercentage()}%
@@ -114,68 +115,83 @@ const QuizResultScreen = () => {
               {result.puntuacion} / {result.puntuacion_maxima} pts
             </Text>
           </View>
-          <Text style={[styles.scoreMessage, { color: getScoreColor() }]}>
-            {getScoreMessage()}
-          </Text>
-          {result.aprobado ? (
-            <View style={styles.approvedBadge}>
-              <Feather name="check-circle" size={18} color="#fff" />
-              <Text style={styles.approvedText}>Aprobado</Text>
-            </View>
-          ) : (
-            <View style={styles.notApprovedBadge}>
-              <Feather name="x-circle" size={18} color="#fff" />
-              <Text style={styles.approvedText}>No aprobado</Text>
-            </View>
-          )}
+
+          {/* Textos y Badge (Derecha) */}
+          <View style={styles.scoreTextContainer}>
+            <Text style={[styles.scoreMessage, { color: getScoreColor() }]}>
+              {getScoreMessage()}
+            </Text>
+            {result.aprobado ? (
+              <View style={styles.approvedBadge}>
+                <Feather name="check-circle" size={16} color="#fff" />
+                <Text style={styles.approvedText}>Aprobado</Text>
+              </View>
+            ) : (
+              <View style={styles.notApprovedBadge}>
+                <Feather name="x-circle" size={16} color="#fff" />
+                <Text style={styles.approvedText}>No aprobado</Text>
+              </View>
+            )}
+          </View>
         </View>
         
         {/* Detalle de respuestas */}
-        <ScrollView 
+        <ScrollView
           style={styles.scrollContainer}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
           <Text style={styles.detailTitle}>Detalle de respuestas</Text>
-          
-          {result.resultados_preguntas.map((item, index) => (
-            <View 
-              key={item.pregunta_id} 
-              style={[
-                styles.answerItem,
-                item.es_correcta ? styles.correctAnswer : styles.incorrectAnswer
-              ]}
-            >
-              <View style={styles.answerHeader}>
-                <Text style={styles.questionNumber}>Pregunta {index + 1}</Text>
-                {item.es_correcta ? (
-                  <View style={styles.statusBadge}>
-                    <Feather name="check" size={14} color="#fff" />
-                    <Text style={styles.statusText}>Correcta</Text>
-                  </View>
-                ) : (
-                  <View style={[styles.statusBadge, styles.incorrectBadge]}>
-                    <Feather name="x" size={14} color="#fff" />
-                    <Text style={styles.statusText}>Incorrecta</Text>
+
+          {/* ---- INICIO CÓDIGO MODIFICADO HHH02Abr2025---- */}
+          {/* Verificamos que result y result.resultados_preguntas (y que sea un array) existan antes de mapear */}
+          {result && Array.isArray(result.resultados_preguntas) && result.resultados_preguntas.length > 0 ? (
+            result.resultados_preguntas.map((item, index) => (
+              <View
+                key={item.pregunta_id || `q-${index}`} // Fallback por si acaso
+                style={[
+                  styles.answerItem,
+                  item.es_correcta ? styles.correctAnswer : styles.incorrectAnswer
+                ]}
+              >
+                <View style={styles.answerHeader}>
+                  <Text style={styles.questionNumber}>Pregunta {index + 1}</Text>
+                  {item.es_correcta ? (
+                    <View style={styles.statusBadge}>
+                      <Feather name="check" size={14} color="#fff" />
+                      <Text style={styles.statusText}>Correcta</Text>
+                    </View>
+                  ) : (
+                    <View style={[styles.statusBadge, styles.incorrectBadge]}>
+                      <Feather name="x" size={14} color="#fff" />
+                      <Text style={styles.statusText}>Incorrecta</Text>
+                    </View>
+                  )}
+                </View>
+
+                <Text style={styles.questionText}>{item.texto_pregunta || 'Texto de pregunta no disponible'}</Text>
+
+                <View style={styles.selectedAnswer}>
+                  <Text style={styles.answerLabel}>Tu respuesta:</Text>
+                  <Text style={styles.answerText}>{item.texto_opcion_seleccionada || 'No respondida'}</Text>
+                </View>
+
+                {!item.es_correcta && item.texto_opcion_correcta && (
+                  <View style={styles.correctAnswerSection}>
+                    <Text style={styles.answerLabel}>Respuesta correcta:</Text>
+                    <Text style={styles.correctAnswerText}>{item.texto_opcion_correcta}</Text>
                   </View>
                 )}
               </View>
-              
-              <Text style={styles.questionText}>{item.texto_pregunta}</Text>
-              
-              <View style={styles.selectedAnswer}>
-                <Text style={styles.answerLabel}>Tu respuesta:</Text>
-                <Text style={styles.answerText}>{item.texto_opcion_seleccionada}</Text>
-              </View>
-              
-              {!item.es_correcta && item.texto_opcion_correcta && (
-                <View style={styles.correctAnswerSection}>
-                  <Text style={styles.answerLabel}>Respuesta correcta:</Text>
-                  <Text style={styles.correctAnswerText}>{item.texto_opcion_correcta}</Text>
-                </View>
-              )}
+            ))
+          ) : (
+            // Contenido a mostrar si no hay detalles
+            <View style={styles.noDetailsContainer}>
+              <Text style={styles.noDetailsText}>No hay detalles de respuestas disponibles para este cuestionario.</Text>
             </View>
-          ))}
+          )}
+          {/* ---- FIN CÓDIGO MODIFICADO ---- */}
+
         </ScrollView>
         
         {/* Botones de acción */}
@@ -227,53 +243,69 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   scoreContainer: {
-    alignItems: 'center',
-    paddingVertical: 24,
+    flexDirection: 'row',        // Mantiene la fila
+    alignItems: 'center',        // Centra verticalmente
+    justifyContent: 'center',    // Centra horizontalmente el contenido DENTRO del contenedor
+    paddingVertical: 20,         // Añadido un poco más de padding vertical
+    paddingHorizontal: 16,
     backgroundColor: COLORS.background || '#f5f5f5',
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.lightGray,
   },
   scoreCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 4,
+    width: 100,                  // Ligeramente más grande que antes (90x90 propuesto)
+    height: 100,
+    borderRadius: 50,            // Mitad del width/height
+    borderWidth: 4,              // Borde un poco más grueso
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: COLORS.white,
-    marginBottom: 16,
+    marginRight: 24,             // Aumentado margen para separar del texto
+    // Quitado marginBottom
   },
   scorePercentage: {
-    fontSize: 28,
+    fontSize: 26, // <-- Reducido tamaño de fuente
     fontWeight: 'bold',
   },
   scorePoints: {
-    fontSize: 14,
+    fontSize: 12, // <-- Reducido tamaño de fuente
     color: COLORS.text,
+    marginTop: 2, // <-- Ajustado margen
+  },
+  scoreTextContainer: {
+    // flex: 1,                  // Quitamos flex: 1 para que no empuje el círculo
+    alignItems: 'center',      // Centramos el texto y badge DENTRO de este contenedor
+    // Quitado marginLeft, el espacio lo da marginRight del círculo
   },
   scoreMessage: {
-    fontSize: 20,
-    fontWeight: '500',
-    marginBottom: 16,
+    fontSize: 18,
+    fontWeight: '600',           // Un poco más de énfasis que antes
+    marginBottom: 10,            // Aumentado margen inferior
+    textAlign: 'center',       // Centrar texto
   },
   approvedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.success || '#4CAF50',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+    // Quitado alignSelf: 'flex-start', se centrará por scoreTextContainer
   },
   notApprovedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.error || '#F44336',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+    // Quitado alignSelf: 'flex-start'
   },
   approvedText: {
     color: '#fff',
     fontWeight: '500',
     marginLeft: 6,
+    fontSize: 14, // Ligeramente más grande
   },
   scrollContainer: {
     flex: 1,
@@ -282,11 +314,12 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 100,
   },
-  detailTitle: {
+  detailTitle: { // Ajustar margen superior si es necesario
     fontSize: 18,
     fontWeight: '500',
     color: COLORS.text,
     marginBottom: 16,
+    marginTop: 10, // Añadir un pequeño margen superior
   },
   answerItem: {
     backgroundColor: COLORS.white,
@@ -433,6 +466,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     color: COLORS.white,
+  },
+  noDetailsContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
+  noDetailsText: {
+    fontSize: 16, // O FONT_SIZES.md si lo tienes importado
+    color: COLORS.gray, // O un color gris que uses
+    textAlign: 'center',
   },
 });
 

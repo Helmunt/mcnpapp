@@ -1,17 +1,18 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { ActivityIndicator, View, BackHandler } from 'react-native';
-import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, View, BackHandler, Text } from 'react-native'; // Asegurarse que Text está importado
+import { useEffect, useRef } from 'react'; // Removido useState, ya no necesitamos lastRegisteredUserId aquí
 import { LoginScreen } from './src/screens/Auth/Login';
 import { MainNavigator } from './src/navigation/MainNavigator';
 import { useFonts } from './src/hooks/useFonts';
 import { COLORS } from './src/constants/theme';
 import { RootStackParamList } from './src/types/navigation';
-import { UserProvider } from './src/context/UserContext';
+import { UserProvider } from './src/context/UserContext'; // Asegúrate que UserProvider sea necesario aquí globalmente
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import useNotifications from './src/hooks/useNotifications';
 import { getStoredPushToken } from './src/services/notificationService';
-import { updatePushTokenIfNeeded, markTokenAsUnregistered } from './src/services/pushTokenService';
+// Importamos la función correcta y quitamos las obsoletas
+import { registerPushTokenWithServer } from './src/services/pushTokenService';
 import { navigationRef, handleNotificationNavigation } from './src/navigation/navigationUtils';
 import * as Notifications from 'expo-notifications';
 import * as Updates from 'expo-updates';
@@ -21,104 +22,103 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function NavigationStack() {
   const { state } = useAuth();
-  // Inicializar las notificaciones solo cuando el usuario está autenticado
+  // Inicializar las notificaciones (incluye la verificación de versión)
   const { isInitialized, refreshNotificationData } = useNotifications();
-  // Referencia para mantener la última notificación recibida
+  // Referencia para mantener la última notificación recibida al iniciar la app
   const lastNotificationResponse = useRef<Notifications.NotificationResponse | null>(null);
-  // Estado para rastrear el último usuario que registró el token
-  const [lastRegisteredUserId, setLastRegisteredUserId] = useState<number | null>(null);
+  // Ya no necesitamos el estado lastRegisteredUserId aquí
 
+  // useEffect para manejar el registro/actualización del token cuando el usuario está autenticado
   useEffect(() => {
-    // Función para manejar cambios de usuario y token
-    const handleUserAndTokenChange = async () => {
+    // Función para sincronizar el token con el servidor
+    const handleTokenSync = async () => {
+      // Solo proceder si el usuario está autenticado, tenemos sus datos y el sistema de notificaciones está listo
       if (state.isAuthenticated && state.user?.token && state.user?.id) {
         try {
-          // Verificar si el usuario ha cambiado desde el último registro de token
-          if (lastRegisteredUserId !== null && lastRegisteredUserId !== state.user.id) {
-            console.log('Usuario cambiado, forzando actualización de token:', 
-              `${lastRegisteredUserId} -> ${state.user.id}`);
-            await markTokenAsUnregistered();
-          }
-          
-          // Obtener el token almacenado
+          // Obtener el token push almacenado localmente
           const pushToken = await getStoredPushToken();
-          
+
           if (pushToken) {
-            console.log('Enviando token de notificaciones al servidor para usuario:', state.user.id);
-            // Forzar la actualización al menos una vez por sesión
-            const forceUpdate = true; // Forzar actualización para asegurar sincronización con el servidor
-            const success = await updatePushTokenIfNeeded(pushToken, state.user.token, state.user.id, forceUpdate);
-            
-            if (success) {
-              setLastRegisteredUserId(state.user.id);
-            }
+            console.log(`[App.tsx] Intentando sincronizar token para User ID: ${state.user.id}`);
+            // Llamamos a la función que siempre intenta registrar/actualizar
+            // registerPushTokenWithServer ahora maneja internamente la lógica de 'force_logout_previous'
+            await registerPushTokenWithServer(pushToken, state.user.token, state.user.id); // <--- ¡CAMBIO CLAVE!
+            // Ya no necesitamos 'success' ni actualizar lastRegisteredUserId aquí
+          } else {
+            console.warn('[App.tsx] No se encontró token push local para enviar al servidor.');
           }
         } catch (error) {
-          console.error('Error al actualizar token para nuevo usuario:', error);
+          // El error específico ya se loguea dentro de registerPushTokenWithServer
+          console.error('[App.tsx] Error durante la sincronización del token:', error);
         }
       }
     };
 
     // Solo proceder si el sistema de notificaciones está inicializado
-    if (isInitialized) {
-      handleUserAndTokenChange();
+    // y el usuario está autenticado (para tener los datos necesarios)
+    if (isInitialized && state.isAuthenticated) {
+      handleTokenSync();
     }
-  }, [isInitialized, state.isAuthenticated, state.user?.id, state.user?.token, lastRegisteredUserId]);
+    // Dependencias correctas: se ejecuta si cambia la inicialización, el estado de auth, o los datos del usuario.
+  }, [isInitialized, state.isAuthenticated, state.user?.id, state.user?.token]);
 
-  // Manejar cierre de sesión - limpiar el estado del último usuario
-  useEffect(() => {
-    if (!state.isAuthenticated) {
-      setLastRegisteredUserId(null);
-    }
-  }, [state.isAuthenticated]);
+  // Ya no necesitamos el useEffect para limpiar lastRegisteredUserId al cerrar sesión
 
-  // Refrescar los datos de notificaciones cuando el usuario inicie sesión
+  // Refrescar los datos de notificaciones (historial/contador) cuando el usuario inicie sesión
+  // y el sistema de notificaciones esté listo.
   useEffect(() => {
     if (state.isAuthenticated && isInitialized) {
+      console.log('[App.tsx] Usuario autenticado y notificaciones inicializadas, refrescando datos de notificación.');
       refreshNotificationData();
     }
-  }, [state.isAuthenticated, isInitialized]);
+    // refreshNotificationData es estable por useCallback en useNotifications
+  }, [state.isAuthenticated, isInitialized, refreshNotificationData]);
 
   // Manejar navegación desde notificaciones que iniciaron la app (cold start)
   useEffect(() => {
     // Verificar si hay una notificación pendiente para procesar
     const getInitialNotification = async () => {
-      // Solo procesar navegación si el usuario está autenticado
-      if (!state.isAuthenticated) return;
+      // Solo procesar navegación si el usuario está autenticado y las notificaciones están listas
+      if (!isInitialized || !state.isAuthenticated) return;
 
       try {
         const response = await Notifications.getLastNotificationResponseAsync();
-        
+
         // Si hay una notificación que inició la app y no la hemos procesado antes
-        if (response && 
-            response.notification.request.identifier !== lastNotificationResponse.current?.notification.request.identifier) {
-          
-          console.log('Notificación que inició la app:', response);
-          lastNotificationResponse.current = response;
-          
-          // Dar tiempo para que el navegador se inicialice completamente
+        // Comparamos el objeto de respuesta completo para mayor seguridad
+        if (response &&
+            response !== lastNotificationResponse.current
+           ) {
+
+          console.log('[App.tsx] Procesando notificación que inició la app:', response.notification.request.identifier);
+          lastNotificationResponse.current = response; // Guardar la respuesta procesada
+
+          // Dar tiempo para que el navegador esté listo (puede ser necesario ajustar)
           setTimeout(() => {
-            // Navegar basado en los datos de la notificación
-            const notificationData = response.notification.request.content.data;
-            handleNotificationNavigation(notificationData);
-          }, 1000);
+            if (navigationRef.current?.isReady()) { // Verificar si el navegador está listo
+              console.log('[App.tsx] Navegando por notificación inicial...');
+              const notificationData = response.notification.request.content.data;
+              handleNotificationNavigation(notificationData);
+            } else {
+              console.warn('[App.tsx] El navegador no estaba listo para la navegación inicial por notificación.');
+              // Considerar reintentar o guardar la acción
+            }
+          }, 1000); // Espera prudencial
         }
       } catch (error) {
-        console.error('Error al obtener notificación inicial:', error);
+        console.error('[App.tsx] Error al obtener notificación inicial:', error);
       }
     };
 
-    if (isInitialized && state.isAuthenticated) {
-      getInitialNotification();
-    }
-  }, [isInitialized, state.isAuthenticated]);
+    getInitialNotification();
+  }, [isInitialized, state.isAuthenticated]); // Ejecutar cuando cambien estos estados
 
+  // Manejo del botón "atrás" de Android
   useEffect(() => {
     const backAction = () => {
-      if (state.isAuthenticated) {
-        return true;
-      }
-      return false;
+      // Si está autenticado, prevenimos salir de la app.
+      // React Navigation debería manejar el retroceso entre pantallas.
+      return !!state.isAuthenticated;
     };
 
     const backHandler = BackHandler.addEventListener(
@@ -126,13 +126,16 @@ function NavigationStack() {
       backAction,
     );
 
-    return () => backHandler.remove();
+    return () => backHandler.remove(); // Limpiar listener
   }, [state.isAuthenticated]);
 
+  // Determinar ruta inicial basada en autenticación
   const initialRoute = state.isAuthenticated && state.user ? 'Main' : 'Login';
 
   return (
+    // Usamos 'key' para forzar re-render si cambia la autenticación, asegurando initialRouteName
     <Stack.Navigator
+      key={state.isAuthenticated ? 'auth' : 'no-auth'}
       initialRouteName={initialRoute}
       screenOptions={{
         headerShown: false,
@@ -140,43 +143,62 @@ function NavigationStack() {
     >
       {!state.isAuthenticated ? (
         <>
-          <Stack.Screen 
-            name="Login" 
-            component={LoginScreen} 
+          <Stack.Screen
+            name="Login"
+            component={LoginScreen}
             options={{
               gestureEnabled: false,
               animation: 'fade'
             }}
           />
-          <Stack.Screen 
-            name="ForgotPassword" 
-            component={ForgotPassword} 
+          <Stack.Screen
+            name="ForgotPassword"
+            component={ForgotPassword}
             options={{
               animation: 'slide_from_right'
             }}
           />
         </>
       ) : (
-        <Stack.Screen 
-          name="Main" 
-          component={MainNavigator} 
+        <Stack.Screen
+          name="Main" // 'Main' debe renderizar MainNavigator (Tabs, etc.)
+          component={MainNavigator} // Volvemos a poner MainNavigator aquí
+           options={{
+              gestureEnabled: false // Evitar gesto de volver desde la pantalla principal
+            }}
         />
+        /* // --- CÓDIGO TEMPORAL DE PRUEBA - ELIMINAR O COMENTAR ---
+        <Stack.Screen
+          name="Main"
+          // Usamos un componente simple en línea como placeholder
+          component={() => (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'lightgray' }}>
+              <Text>Prueba - Main Navigator Desactivado</Text>
+            </View>
+          )}
+           options={{
+              gestureEnabled: false
+            }}
+        />
+        // --- FIN CÓDIGO TEMPORAL --- */
       )}
     </Stack.Navigator>
   );
 }
 
+// Componente intermedio para asegurar que las fuentes estén cargadas
 function AppContent() {
   const fontsLoaded = useFonts();
 
   if (!fontsLoaded) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background }}>
         <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
   }
 
+  // NavigationContainer debe envolver la navegación una vez las fuentes estén listas
   return (
     <NavigationContainer ref={navigationRef}>
       <NavigationStack />
@@ -184,42 +206,52 @@ function AppContent() {
   );
 }
 
+// Componente principal que configura los proveedores y las actualizaciones OTA
 export default function App() {
-  // Verificar actualizaciones OTA
+  // Verificar actualizaciones OTA (Over-the-Air) de Expo Updates
   useEffect(() => {
     async function checkForUpdates() {
       try {
         console.log('[Updates] Modo de desarrollo:', __DEV__);
-        
+
         // Solo verificar en modo de producción
         if (!__DEV__) {
           console.log('[Updates] Verificando actualizaciones...');
           const update = await Updates.checkForUpdateAsync();
-          
+
           console.log('[Updates] Resultado de checkForUpdateAsync:', JSON.stringify(update));
-          
+
           if (update.isAvailable) {
             console.log('[Updates] Nueva actualización disponible, descargando...');
             const fetchResult = await Updates.fetchUpdateAsync();
-            
+
             console.log('[Updates] Resultado de fetchUpdateAsync:', JSON.stringify(fetchResult));
-            
-            console.log('[Updates] Actualización descargada, reiniciando...');
-            await Updates.reloadAsync();
+
+            // Comprobar si la descarga fue exitosa antes de reiniciar
+            if (fetchResult.isNew) { // O simplemente verificar si no hubo error
+                console.log('[Updates] Actualización descargada, reiniciando...');
+                await Updates.reloadAsync();
+            } else {
+                console.log('[Updates] La descarga de la actualización no resultó en una nueva versión (fetchResult.isNew=false)');
+            }
           } else {
             console.log('[Updates] No hay actualizaciones disponibles');
           }
         } else {
           console.log('[Updates] Omitiendo verificación de actualizaciones en modo desarrollo');
         }
-      } catch (error) {
-        console.error('[Updates] Error detallado al verificar actualizaciones:', error);
+      } catch (error: any) {
+        // Captura errores específicos si es posible, o log genérico
+         console.error(`[Updates] Error durante la verificación de actualizaciones OTA: ${error?.message || error}`);
+         // Puedes agregar más detalles aquí si el objeto de error los tiene
+         console.error('[Updates] Error detallado:', error);
       }
     }
-    
-    checkForUpdates();
-  }, []);
 
+    checkForUpdates();
+  }, []); // Ejecutar solo una vez al montar el componente App
+
+  // Envolver la app con los proveedores necesarios
   return (
     <AuthProvider>
       <UserProvider>

@@ -11,6 +11,7 @@ import { BuddyPressService } from '../../services/buddypress';
 import { getUnreadCount } from '../../services/notificationHistoryService';
 import { AppState, AppStateStatus } from 'react-native';
 import { isSessionValid } from '../../services/sessionValidityService';
+import { subscribe, EventType, publish } from '../../services/eventBus';
 
 // Definimos el tipo de navegación
 type RootStackNavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -24,27 +25,24 @@ interface HeaderProps {
 // Variable global para almacenar referencia al WebView de BuddyPress activo
 let activeBuddyPressWebViewRef: any = null;
 
-// Variable global para el evento de cambio en notificaciones
-let notificationUpdateListeners: (() => void)[] = [];
-
 // Función para establecer la referencia activa desde cualquier componente
 export const setActiveBuddyPressWebViewRef = (ref: any) => {
   activeBuddyPressWebViewRef = ref;
   console.log('[Header] WebView de BuddyPress registrado para navegación segura');
 };
 
+// Estas funciones ahora son wrappers que usan el EventBus
+// Mantenemos la misma API para compatibilidad con código existente
+
 // Función para notificar cambios en notificaciones
 export const notifyNotificationUpdate = () => {
-  console.log('[Header] Notificando actualización de notificaciones a', notificationUpdateListeners.length, 'oyentes');
-  notificationUpdateListeners.forEach(listener => listener());
+  console.log('[Header] Notificando actualización de notificaciones (via EventBus)');
+  publish(EventType.NOTIFICATION_UPDATE);
 };
 
 // Función para suscribirse a cambios de notificaciones
 export const subscribeToNotificationUpdates = (listener: () => void) => {
-  notificationUpdateListeners.push(listener);
-  return () => {
-    notificationUpdateListeners = notificationUpdateListeners.filter(l => l !== listener);
-  };
+  return subscribe(EventType.NOTIFICATION_UPDATE, listener);
 };
 
 const NotificationBadge = ({ count }: { count: number }) => {
@@ -133,7 +131,7 @@ const Header: React.FC<HeaderProps> = ({ title, showBackButton = false }) => {
     });
 
     // Suscribirse a cambios en notificaciones
-    const unsubscribe = subscribeToNotificationUpdates(loadNotificationCount);
+    const unsubscribe = subscribe(EventType.NOTIFICATION_UPDATE, loadNotificationCount);
 
     // Establecer un intervalo para actualizar periódicamente (respaldo)
     const interval = setInterval(loadNotificationCount, 15000); // cada 15 segundos

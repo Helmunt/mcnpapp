@@ -5,7 +5,8 @@ import { addNotificationToHistory } from './notificationHistoryService';
 import { NotificationHistoryItem } from '../types/notificationTypes';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { markSessionAsInvalid } from './sessionValidityService';
-import { notifyNotificationUpdate } from '../components/shared/Header';
+// Importar desde eventBus en lugar de Header
+import { publish, EventType } from './eventBus';
 
 // Nombre de la tarea en segundo plano
 export const BACKGROUND_NOTIFICATION_TASK = 'background-notification-task';
@@ -61,6 +62,10 @@ TaskManager.defineTask(BACKGROUND_NOTIFICATION_TASK, async ({ data, error }) => 
 // Función para guardar notificación en segundo plano en el historial
 const saveBackgroundNotificationToHistory = async (notification: Notifications.Notification) => {
   try {
+    if (!notification || !notification.request || !notification.request.content) {
+      console.warn('[saveBackgroundNotificationToHistory] Notificación inválida, ignorada');
+      return false;
+    }
     // Añadir logging detallado para diagnóstico
     console.log('[saveBackgroundNotificationToHistory] Procesando notificación:', notification.request?.identifier);
     
@@ -68,10 +73,17 @@ const saveBackgroundNotificationToHistory = async (notification: Notifications.N
     const title = notification.request?.content?.title || 'Sin título';
     const body = notification.request?.content?.body || 'Sin contenido';
     const data = notification.request?.content?.data || {};
-    const id = notification.request?.identifier || `notification-${Date.now()}`;
+    const notificationDataId = notification.request?.content?.data?.notificationId;
+
+    const id = notificationDataId
+      ? `notification-${notificationDataId}`
+      : notification.request?.identifier || `notification-${Date.now()}`;
     
     console.log('[saveBackgroundNotificationToHistory] Datos extraídos:', { id, title, data });
-    
+    if (!title && !body) {
+      console.warn(`[saveBackgroundNotificationToHistory] Notificación vacía ignorada (id: ${id})`);
+      return false;
+    }
     // Crear objeto de historial de notificación
     const historyItem: NotificationHistoryItem = {
       id: id,
@@ -88,17 +100,12 @@ const saveBackgroundNotificationToHistory = async (notification: Notifications.N
     
     console.log('[saveBackgroundNotificationToHistory] Notificación guardada en historial:', success);
     
-    // Llamar explícitamente a notifyNotificationUpdate ya que en segundo plano
-    // puede que no se esté ejecutando correctamente desde addNotificationToHistory
-    if (notifyNotificationUpdate) {
-      try {
-        notifyNotificationUpdate();
-        console.log('[saveBackgroundNotificationToHistory] Notificación de actualización enviada');
-      } catch (notifyError) {
-        console.error('[saveBackgroundNotificationToHistory] Error al notificar cambios:', notifyError);
-      }
-    } else {
-      console.log('[saveBackgroundNotificationToHistory] notifyNotificationUpdate no está disponible');
+    // Notificar de forma explícita usando el EventBus
+    try {
+      publish(EventType.NOTIFICATION_UPDATE);
+      console.log('[saveBackgroundNotificationToHistory] Evento de actualización publicado en EventBus');
+    } catch (notifyError) {
+      console.error('[saveBackgroundNotificationToHistory] Error al publicar evento:', notifyError);
     }
     
     return success;

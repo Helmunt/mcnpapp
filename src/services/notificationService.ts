@@ -6,7 +6,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { registerBackgroundNotificationTask, unregisterBackgroundNotificationTask } from './backgroundNotificationTask';
 import { addNotificationToHistory, getUnreadCount, markAllNotificationsAsRead as markAllAsRead, markNotificationAsRead as markAsRead } from './notificationHistoryService';
 import { NotificationHistoryItem, NotificationPreferences } from '../types/notificationTypes';
-import { notifyNotificationUpdate } from '../components/shared/Header';
+// Importar desde eventBus en lugar de Header
+import { publish, EventType } from './eventBus';
 import { markSessionAsInvalid } from './sessionValidityService';
 
 // Configuración avanzada para notificaciones en primer plano
@@ -101,10 +102,8 @@ const handleForceLogoutNotification = async (notification: Notifications.Notific
     // Almacenar esta notificación en el historial
     await saveNotificationToHistory(notification);
     
-    // Notificar al sistema que ha habido un cambio en las notificaciones
-    if (notifyNotificationUpdate) {
-      notifyNotificationUpdate();
-    }
+    // Notificar al sistema que ha habido un cambio en las notificaciones usando EventBus
+    publish(EventType.NOTIFICATION_UPDATE);
     
     return true;
   } catch (error) {
@@ -181,8 +180,8 @@ export const processForegroundNotification = async (notification: Notifications.
       // Guardar TODAS las notificaciones en el historial inmediatamente
       await saveNotificationToHistory(notification);
       
-      // Notificar cambios para actualizar la UI inmediatamente
-      notifyNotificationUpdate();
+      // Notificar cambios para actualizar la UI inmediatamente usando EventBus
+      publish(EventType.NOTIFICATION_UPDATE);
     }
     
     return true;
@@ -195,7 +194,25 @@ export const processForegroundNotification = async (notification: Notifications.
 // Función para guardar una notificación en el historial local
 const saveNotificationToHistory = async (notification: Notifications.Notification) => {
   try {
-    const { title, body, data } = notification.request.content;
+    console.log('[NotificationService] Notificación recibida:', {
+      title: notification.request?.content?.title,
+      body: notification.request?.content?.body,
+      data: notification.request?.content?.data
+    });
+
+    const title = notification.request?.content?.title || 'Sin título';
+    const body = notification.request?.content?.body || 'Sin contenido';
+    const data = notification.request?.content?.data || {};
+    const id = notification.request?.identifier || `notification-${Date.now()}`;
+    
+    // Registro detallado
+    console.log('[NotificationService] Procesando notificación:', {
+      title, 
+      body, 
+      dataType: typeof data, 
+      dataKeys: Object.keys(data)
+    });
+    //const { title, body, data } = notification.request.content;
     
     // Crear objeto de historial de notificación
     const historyItem: NotificationHistoryItem = {
@@ -393,14 +410,12 @@ export const handleBackgroundNotification = async (notification: Notifications.N
     // Usar el nuevo servicio de historial para añadir la notificación
     const success = await addNotificationToHistory(historyItem);
     
-    // Asegurarnos de notificar explícitamente a los componentes
-    if (notifyNotificationUpdate) {
-      try {
-        notifyNotificationUpdate();
-        console.log('[NotificationService] Notificación de actualización enviada');
-      } catch (error) {
-        console.error('[NotificationService] Error al notificar cambios:', error);
-      }
+    // Asegurarnos de notificar explícitamente a los componentes usando EventBus
+    try {
+      publish(EventType.NOTIFICATION_UPDATE);
+      console.log('[NotificationService] Evento de actualización publicado en EventBus');
+    } catch (error) {
+      console.error('[NotificationService] Error al publicar evento:', error);
     }
     
     return success;
