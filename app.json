@@ -2,7 +2,7 @@
   "expo": {
     "name": "MCNP Mexico App",
     "slug": "mcnpapp",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -68,7 +68,7 @@
         "projectId": "38f43a31-97fb-446d-a212-f0d43022f0aa"
       }
     },
-    "runtimeVersion": "1.0.2",
+    "runtimeVersion": "1.0.3",
     "updates": {
       "url": "https://u.expo.dev/38f43a31-97fb-446d-a212-f0d43022f0aa"
     }

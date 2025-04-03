@@ -167,20 +167,7 @@ function NavigationStack() {
               gestureEnabled: false // Evitar gesto de volver desde la pantalla principal
             }}
         />
-        /* // --- CÓDIGO TEMPORAL DE PRUEBA - ELIMINAR O COMENTAR ---
-        <Stack.Screen
-          name="Main"
-          // Usamos un componente simple en línea como placeholder
-          component={() => (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'lightgray' }}>
-              <Text>Prueba - Main Navigator Desactivado</Text>
-            </View>
-          )}
-           options={{
-              gestureEnabled: false
-            }}
-        />
-        // --- FIN CÓDIGO TEMPORAL --- */
+
       )}
     </Stack.Navigator>
   );
